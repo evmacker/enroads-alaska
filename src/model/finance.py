@@ -18,6 +18,23 @@ def closure_cost(residual_emis, carbon_price, neutralization_share):
     return residual_emis * carbon_price * neutralization_share
 
 
+def saf_abatement_cost(jet_price, premium, partner_share, tonnes_avoided_per_gallon):
+    """What Alaska pays, per tonne of CO2e abated, to fly on SAF instead of jet fuel.
+
+    The SAF share cancels out of this ratio: buying twice the SAF buys twice the
+    abatement at twice the cost. So this is a *price*, not a quantity - it moves only
+    with the jet fuel price, the SAF premium and the partner-funded share.
+    """
+    premium_per_gallon = jet_price * premium * (1 - partner_share)
+    return premium_per_gallon / tonnes_avoided_per_gallon
+
+
+def breakeven_premium(carbon_price, jet_price, partner_share, tonnes_avoided_per_gallon):
+    """SAF premium at which a tonne abated by SAF costs the same as a tonne offset."""
+    payable = jet_price * (1 - partner_share)
+    return (carbon_price * tonnes_avoided_per_gallon / payable) if payable else float("inf")
+
+
 def carbon_supply(year, observed_volume, observed_year, growth):
     """Durable removal supply grown from its one observed volume.
 

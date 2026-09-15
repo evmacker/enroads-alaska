@@ -197,3 +197,87 @@ def test_milestone_figures_agree_with_the_pathway(data):
         assert m["saf_cost"] == pytest.approx(row["net_saf_premium"], rel=1e-12)
         assert m["offset_cost"] == pytest.approx(row["offset_cost"], rel=1e-12)
         assert m["residual_emis"] == pytest.approx(row["residual_emis"], rel=1e-12)
+
+
+# --- marginal abatement cost: SAF vs carbon credits ---------------------------
+
+def _cost_per_tonne_2040(data, **overrides):
+    """Measured, not read off the model: cost / (emissions avoided vs a no-SAF run)."""
+    with_saf = scenario(data, **overrides).pathway.set_index("year").loc[2040]
+    without = scenario(data, saf_share_2030=0.0, saf_share_2040=0.0,
+                       **overrides).pathway.set_index("year").loc[2040]
+    return with_saf["net_saf_premium"] / (without["aircraft_emis"] - with_saf["aircraft_emis"])
+
+
+def test_reported_saf_cost_per_tonne_matches_measured_abatement(data):
+    reported = scenario(data).pathway.set_index("year").loc[2040, "saf_cost_per_tonne"]
+    assert reported == pytest.approx(_cost_per_tonne_2040(data), rel=1e-9)
+
+
+@pytest.mark.parametrize("lever, value", [
+    ("saf_share_2040", 0.25), ("saf_share_2040", 0.95),   # the share cancels out
+    ("efficiency_adj", 0.02), ("fleet_renewal", 1.0), ("novel_propulsion", 0.5),
+    ("activity_adj", 0.03), ("ground_elec", 1.0), ("catalytic_pct", 0.02),
+])
+def test_saf_cost_per_tonne_is_invariant_to_quantity_levers(data, lever, value):
+    """It is a price, not a total: only fuel price, premium and partner share move it."""
+    base = scenario(data).pathway.set_index("year").loc[2040, "saf_cost_per_tonne"]
+    moved = scenario(data, **{lever: value}).pathway.set_index("year").loc[2040, "saf_cost_per_tonne"]
+    assert moved == pytest.approx(base, rel=1e-12)
+
+
+@pytest.mark.parametrize("lever, value, factor", [
+    ("saf_premium", 0.5, 0.5),        # half the premium, half the cost per tonne
+    ("partner_share", 0.5, 0.5),      # partners cover half, Alaska pays half
+])
+def test_price_levers_scale_saf_cost_per_tonne(data, lever, value, factor):
+    base = scenario(data).pathway.set_index("year").loc[2040, "saf_cost_per_tonne"]
+    moved = scenario(data, **{lever: value}).pathway.set_index("year").loc[2040, "saf_cost_per_tonne"]
+    assert moved == pytest.approx(base * factor, rel=1e-12)
+
+
+def test_saf_cost_per_tonne_tracks_the_jet_fuel_price(data):
+    """The only reason the line moves across years is the EIA fuel price index."""
+    pathway = scenario(data).pathway
+    ratio = pathway["saf_cost_per_tonne"] / pathway["jet_price"]
+    assert ratio.nunique() == 1 or ratio.std() < 1e-9
+
+
+def test_breakeven_premium_actually_breaks_even(data):
+    """Setting the premium to the reported breakeven equalizes the two prices."""
+    breakeven = scenario(data).pathway.set_index("year").loc[2040, "breakeven_premium"]
+    row = scenario(data, saf_premium=breakeven).pathway.set_index("year").loc[2040]
+    assert row["saf_cost_per_tonne"] == pytest.approx(row["carbon_price"], rel=1e-9)
+    assert row["abatement_spread"] == pytest.approx(0.0, abs=1e-9)
+
+
+def test_default_scenario_makes_offsets_the_cheaper_tonne(data):
+    """Documents the finding: at a 100% premium, carbon credits undercut SAF every year."""
+    r = scenario(data)
+    assert r.diagnostics["cheaper_tonne_2040"] == "offsets"
+    assert (r.pathway["abatement_spread"] > 0).all()
+
+
+def test_a_high_enough_carbon_price_flips_the_spread(data):
+    flipped = scenario(data, carbon_price=500)
+    assert flipped.diagnostics["cheaper_tonne_2040"] == "SAF"
+    assert (flipped.pathway["abatement_spread"] < 0).all()
+
+
+# --- ground electrification is real but tiny ----------------------------------
+
+def test_ground_electrification_ceiling_is_negligible(data):
+    """Pins the finding so it cannot drift silently: the whole lever is <0.3% of residual."""
+    none = scenario(data, ground_elec=0.0).physical_2040["residual_emis"]
+    full = scenario(data, ground_elec=1.0).physical_2040["residual_emis"]
+    removed = none - full
+    assert 0 < removed / none < 0.003
+    assert removed == pytest.approx(20_123, rel=0.01)
+
+
+def test_one_saf_step_outweighs_the_entire_ground_lever(data):
+    ground = (scenario(data, ground_elec=0.0).physical_2040["residual_emis"]
+              - scenario(data, ground_elec=1.0).physical_2040["residual_emis"])
+    saf_step = (scenario(data, saf_share_2040=0.60).physical_2040["residual_emis"]
+                - scenario(data, saf_share_2040=0.65).physical_2040["residual_emis"])
+    assert saf_step > 20 * ground

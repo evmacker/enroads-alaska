@@ -116,8 +116,8 @@ st.caption(
 
 # ---- discovery --------------------------------------------------------------
 st.divider()
-t1, tc, t2, t3, t4 = st.tabs(["SAF supply vs demand", "Carbon market", "Emissions pathway",
-                              "Annual table", "Model notes"])
+t1, tc, tp, t2, t3, t4 = st.tabs(["SAF supply vs demand", "Carbon market", "Cost per tonne",
+                                  "Emissions pathway", "Annual table", "Model notes"])
 with t1:
     st.plotly_chart(viz.saf_supply_chart(result.pathway, DATA["saf_history"]),
                     width="stretch", config={"displayModeBar": False})
@@ -143,6 +143,24 @@ with tc:
            "raise 'durable removal market growth' in the sidebar to find the rate that would.")
         + " Log scale. This chart is presentational: carbon supply never constrains the model.")
 
+with tp:
+    st.plotly_chart(viz.abatement_cost_chart(result.pathway), width="stretch",
+                    config={"displayModeBar": False})
+    y40 = result.pathway.set_index("year").loc[2040]
+    crossing = viz._abatement_crossover(result.pathway)
+    st.caption(
+        f"A tonne abated by SAF costs ${y40['saf_cost_per_tonne']:,.0f} in 2040 against "
+        f"${values['carbon_price']:,.0f} for a carbon credit — "
+        + (f"SAF is the cheaper tonne from {crossing}."
+           if crossing else
+           f"offsets are cheaper by ${abs(y40['abatement_spread']):,.0f}/t in every modeled year.")
+        + f" The SAF line is a *price*, not a quantity: it does not move with how much SAF you "
+          f"buy, or with efficiency, fleet, propulsion or activity. Only three things move it — "
+          f"the jet fuel price, the SAF premium, and the partner-funded share. So SAF becomes the "
+          f"cheaper tonne in 2040 below a {y40['breakeven_premium']:.0%} premium, or above a "
+          f"${y40['saf_cost_per_tonne']:,.0f}/t carbon price. For reference the CORSIA midpoint is "
+          f"$59/t, which widens the gap rather than closing it.")
+
 with t2:
     st.plotly_chart(viz.emissions_pathway(result.pathway), width="stretch",
                     config={"displayModeBar": False})
@@ -151,6 +169,7 @@ with t3:
     cols = ["year", "activity_index", "efficiency_index", "liquid_fuel_gal", "effective_saf_share",
             "saf_availability", "market_capture", "intensity", "reduction_vs_2019",
             "residual_emis", "revenue", "net_saf_premium", "offset_cost", "carbon_supply",
+            "saf_cost_per_tonne", "abatement_spread", "breakeven_premium",
             "investable_pool", "closure_cost"]
     st.dataframe(result.pathway[cols], width="stretch", hide_index=True, height=440)
     st.download_button("Download pathway CSV", result.pathway.to_csv(index=False),
@@ -168,6 +187,10 @@ with t4:
         "side is understated.\n"
         "- **Catalytic capital** adds US SAF capacity after a 3-year lag. It never discounts "
         "the SAF price.\n"
+        "- **Ground electrification barely moves the result, and that is real, not a bug.** "
+        "Alaska's ground vehicles are 0.28% of the 2040 operational residual; 100% "
+        "electrification removes ~20k t, about $4M at $200/t. One 5pp step on the 2040 SAF "
+        "slider moves 27x more.\n"
         "- Waterfall levers are attributed in a fixed order "
         f"({', '.join(label for _, label in LEVER_ORDER)}); "
         "overlapping levers make attribution order-dependent.\n"

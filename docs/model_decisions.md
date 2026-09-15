@@ -67,6 +67,40 @@ cost, and a test enforces that. For scale, the whole voluntary market retired 20
 2025, so Alaska's 2040 residual alone is roughly 3.5% of it and about 3.8× the entire
 observed durable removal market.
 
+**Marginal abatement cost (new).** What a tonne costs, two ways:
+
+```
+SAF $/t abated   = jet price x premium x (1 - partner share) / tonnes avoided per gallon
+breakeven premium = carbon price x tonnes avoided per gallon / (jet price x (1 - partner))
+```
+
+`tonnes avoided per gallon` is derived, not assumed: 2025 reported intensity is grossed
+back up to a conventional-only basis (it already contains ~0.95% SAF), divided by 2025
+operating fuel, and multiplied by the 80% lifecycle reduction. It comes to **0.00734
+tCO2e per gallon**, implying ~9.2 kg/gal for conventional jet fuel — in line with
+published lifecycle figures, which is a useful sanity check on the whole chain.
+
+**The SAF share cancels out of this ratio.** Twice the SAF is twice the abatement at
+twice the cost, so this is a *price*, not a quantity. Algebraically the activity index,
+efficiency index, fleet factor and propulsion share all cancel too. Only three inputs
+move it — jet fuel price, SAF premium, partner share — and `test_model.py` pins that
+invariance against eight levers, because it is the property that makes the spread
+chart readable.
+
+At the workbook defaults SAF costs **$347/t in 2030 rising to $406/t in 2040** against a
+$200/t carbon price, so **offsets are the cheaper tonne in every modeled year**. The
+spread closes only below a ~49-58% SAF premium, above a ~$347-406/t carbon price, or with
+partners funding ~50%+ of the premium. The CORSIA midpoint of $59/t widens the gap rather
+than closing it.
+
+**Ground electrification is negligible, and that is real.** Alaska's Scope 1 ground
+vehicles are 0.13% of 2025 operational emissions and 0.28% of the 2040 residual. Full
+100% electrification removes ~20,123 t — about $4M at $200/t — while one 5pp step on the
+2040 SAF slider moves 543,777 t, roughly 27x more. The lever is kept because it is in the
+workbook and the emissions are real, but its ceiling is stated in the slider help text and
+pinned by a test so it cannot drift silently. It is a completeness lever, not a decision
+lever.
+
 **2040 — financial feasibility (new).** The headline KPI:
 
 ```

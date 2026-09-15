@@ -66,7 +66,20 @@ def load_data(root: str = str(ROOT)) -> dict:
         facility_emis=float(base["2025 Facility heating Scope 1 emissions"]),
         scope2_emis=float(base["2025 Scope 2 market-based emissions"]),
         ocf_2025=float(base["2025 Operating Cash Flow"]),
+        tonnes_avoided_per_saf_gallon=_tonnes_avoided_per_saf_gallon(base, cfg["anchors"]),
     )
+
+
+def _tonnes_avoided_per_saf_gallon(base, anchors):
+    """CO2e a gallon of SAF avoids vs conventional jet fuel.
+
+    2025 reported intensity already contains ~0.95% SAF, so it is grossed back up to a
+    conventional-only basis before applying the lifecycle reduction.
+    """
+    reported = float(base["2025 GHG Intensity"]) * float(base["2025 implied RTM"]) / 1000
+    conventional_basis = reported / float(base["2025 Operating Aircraft Fuel"]) / (
+        1 - float(base["2025 operating SAF share"]) * anchors["saf_lifecycle_reduction"])
+    return conventional_basis * anchors["saf_lifecycle_reduction"]
 
 
 def default_inputs(data: dict) -> ScenarioInputs:
@@ -127,6 +140,15 @@ def run_scenario(inputs: ScenarioInputs, data: dict) -> ScenarioResult:
                                                    data["removal_volume_year"], inputs.removal_growth)
         # closure_cost stays 2040-only: it is the workbook's own column and parity depends on it.
         r["closure_cost"] = r["offset_cost"] if y == NETZERO_YEAR else 0.0
+        # Marginal abatement price: what a tonne costs via SAF vs via offsets.
+        r["saf_cost_per_tonne"] = finance.saf_abatement_cost(
+            r["jet_price"], inputs.saf_premium, inputs.partner_share,
+            data["tonnes_avoided_per_saf_gallon"])
+        r["carbon_price"] = inputs.carbon_price
+        r["abatement_spread"] = r["saf_cost_per_tonne"] - inputs.carbon_price
+        r["breakeven_premium"] = finance.breakeven_premium(
+            inputs.carbon_price, r["jet_price"], inputs.partner_share,
+            data["tonnes_avoided_per_saf_gallon"])
         r["physical_decarb_spend"] = r["net_saf_premium"] + r["catalytic_investment"]
         r.update(finance.headroom(r["revenue"], inputs.investable_pct,
                                   r["physical_decarb_spend"], r["closure_cost"]))
@@ -169,6 +191,10 @@ def run_scenario(inputs: ScenarioInputs, data: dict) -> ScenarioResult:
 
     diagnostics = dict(
         ocf_share_revenue_2025=data["ocf_2025"] / data["revenue_2025"],
+        tonnes_avoided_per_saf_gallon=data["tonnes_avoided_per_saf_gallon"],
+        cheaper_tonne_2040=("SAF" if y40["abatement_spread"] < 0 else "offsets"),
+        saf_cost_per_tonne_2040=y40["saf_cost_per_tonne"],
+        breakeven_premium_2040=y40["breakeven_premium"],
         matured_catalytic_2040=matured[NETZERO_YEAR],
         extra_capacity_2040=extra_capacity[NETZERO_YEAR],
         saf_supply_case=inputs.saf_supply_case,

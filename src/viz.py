@@ -172,3 +172,43 @@ def _crossover_year(pathway):
     """First year durable removal supply covers Alaska's offset demand, if it ever does."""
     covered = pathway[pathway.carbon_supply >= pathway.residual_emis]
     return int(covered.year.iloc[0]) if len(covered) else None
+
+
+def abatement_cost_chart(pathway):
+    """The price of a tonne, two ways: bought as SAF, or bought as a carbon credit.
+
+    The SAF line is a marginal price, not a total — it does not move with how much SAF
+    the scenario buys. Only the jet fuel price, the SAF premium and the partner-funded
+    share move it, which is what makes the spread against the carbon price readable.
+    """
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=pathway.year, y=pathway.saf_cost_per_tonne, name="SAF, $/t abated", mode="lines",
+        line=dict(color=SERIES["orange"], width=2),
+        hovertemplate="SAF: $%{y:,.0f}/t abated<extra></extra>"))
+    fig.add_trace(go.Scatter(
+        x=pathway.year, y=pathway.carbon_price, name="Carbon credit, $/t", mode="lines",
+        line=dict(color=SERIES["blue"], width=2), fill="tonexty", fillcolor="rgba(82,81,78,0.10)",
+        hovertemplate="Carbon: $%{y:,.0f}/t<extra></extra>"))
+
+    crossing = _abatement_crossover(pathway)
+    if crossing:
+        fig.add_vline(x=crossing, line=dict(color=MUTED, width=1, dash="dot"),
+                      annotation_text=f"SAF becomes cheaper, {crossing}",
+                      annotation_position="top left", annotation_font=dict(color=INK, size=11))
+    else:
+        last = pathway.iloc[-1]
+        cheaper = "SAF" if last.abatement_spread < 0 else "offsets"
+        fig.add_annotation(
+            x=last.year, y=(last.saf_cost_per_tonne + last.carbon_price) / 2,
+            text=f"<b>${abs(last.abatement_spread):,.0f}/t</b><br>{cheaper} cheaper",
+            showarrow=False, xanchor="right", xshift=-10, font=dict(color=INK, size=12),
+            bgcolor=SURFACE, borderpad=3)
+    fig.update_yaxes(tickprefix="$", ticksuffix="/t", rangemode="tozero")
+    return _frame(fig, 310, ytitle="Cost per tonne of CO2e", legend=True)
+
+
+def _abatement_crossover(pathway):
+    """First year a tonne abated by SAF costs no more than a tonne of offsets."""
+    cheaper = pathway[pathway.abatement_spread <= 0]
+    return int(cheaper.year.iloc[0]) if len(cheaper) else None

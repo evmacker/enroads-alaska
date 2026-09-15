@@ -39,7 +39,7 @@ def test_moving_a_slider_changes_the_headline():
 
 def test_all_tabs_and_charts_render():
     at = run()
-    assert len(at.tabs) == 5          # SAF, carbon, pathway, table, notes
+    assert len(at.tabs) == 6          # SAF, carbon, cost/tonne, pathway, table, notes
     assert len(at.dataframe) == 1
 
 

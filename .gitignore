@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+.venv/
+
+# The canonical copy of the workbook lives in data/raw/; this is the untracked original.
+/Alaska_Airlines_Model_Revenue_Anchored_v3.xlsx

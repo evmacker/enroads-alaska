@@ -1,0 +1,29 @@
+metric,year,value,units,source
+2019 GHG Intensity Baseline,2019,1.39,"metric tons CO₂e / 1,000 RTM",Sustain Report
+2025 GHG Intensity,2025,1.33,"metric tons CO2e / 1,000 RTM",2025 Impact Report
+2025 Conventional Jet Fuel,2025,1079785000.0,gallons,2025 Impact Report
+2025 SAF,2025,10891144.0,gallons,2025 Impact Report
+2025 Operating Aircraft Fuel,2025,1146000000.0,gallons,2025 10-K / operating statistics
+2025 Into-plane Fuel Price,2025,2.51,$/gallon,2025 10-K
+2025 Total Operating Revenue,2025,14239000000.0,$,2025 10-K
+2025 Passenger Revenue,2025,12835000000.0,$,2025 10-K
+2024 PF ASM,2024,91208000000.0,ASM,2025 10-K pro forma
+2025 ASM,2025,92962000000.0,ASM,2025 10-K
+2025 Aircraft Scope 1 emissions,2025,10428326.0,tCO2e,2025 Impact Report
+2025 Vehicle Scope 1 emissions,2025,13789.0,tCO2e,2025 Impact Report
+2025 Facility heating Scope 1 emissions,2025,6385.0,tCO2e,2025 Impact Report
+2025 SAF N2O Scope 1 emissions,2025,866.0,tCO2e,2025 Impact Report
+2025 Scope 2 market-based emissions,2025,13321.0,tCO2e,2025 Impact Report
+2025 Scope 1 total,2025,10449366.0,tCO2e,2025 Impact Report
+2025 implied RTM,2025,7840846616.541353,RTM,"Derived: aircraft Scope 1 / GHG intensity × 1,000"
+2025 operating SAF share,2025,0.009503616055846422,% of operating fuel,Derived: SAF gallons / operating aircraft fuel
+2025 environmental-reporting SAF share,2025,0.009985680955720987,% of env. fuel,Derived: SAF / (conventional + SAF)
+2025 Scope 3 total (context only),2025,3829342.0,tCO2e,2025 Impact Report; excluded from v1 operational net-zero model
+2025 Cash & Cash Equivalents,2025,627000000.0,$,2025 10-K
+2025 Marketable Securities,2025,1496000000.0,$,2025 10-K
+2025 Cash + Marketable Securities,2025,2123000000.0,$,Derived
+2025 Available Liquidity,2025,2973000000.0,$,2025 10-K; includes unused line of credit
+2025 Operating Cash Flow,2025,1200000000.0,$,2025 10-K
+2025 Capital Expenditures,2025,1600000000.0,$,2025 10-K
+2026 Planned Capital Expenditures — midpoint,2026,1450000000.0,$,2026 Q1 10-Q guidance $1.4B–$1.5B
+2031–2035 Aggregate Aircraft Commitments,2031,4264000000.0,$,2026 Q2 10-Q; 'thereafter' after 2030

@@ -1,0 +1,47 @@
+# Defaults, bounds, labels and citations. No formulas live in the UI.
+meta:
+  base_year: 2025
+  target_year_2030: 2030
+  netzero_year: 2040
+  target_band: [0.10, 0.14]   # Alaska 2030 intensity reduction vs 2019
+
+# User-facing scenario inputs: default, min, max, step, label, help
+inputs:
+  saf_share_2030:   {default: 0.10, min: 0.0,  max: 0.50, step: 0.01, label: "SAF share 2030",  help: "Share of liquid jet fuel from SAF in 2030.", fmt: "pct", group: "SAF"}
+  saf_share_2040:   {default: 0.60, min: 0.0,  max: 1.00, step: 0.05, label: "SAF share 2040",  help: "Share of liquid jet fuel from SAF in 2040.", fmt: "pct", group: "SAF"}
+  saf_premium:      {default: 1.00, min: 0.0,  max: 3.00, step: 0.05, label: "SAF price premium", help: "Market SAF price premium over conventional jet fuel. No transparent SAF spot price exists.", fmt: "pct", group: "SAF"}
+  partner_share:    {default: 0.00, min: 0.0,  max: 1.00, step: 0.05, label: "Partner-funded share of premium", help: "Scope 3 / book-and-claim support. Shifts cost, not physical SAF use.", fmt: "pct", group: "SAF"}
+  fleet_renewal:    {default: 0.00, min: 0.0,  max: 1.00, step: 0.05, label: "Fleet renewal by 2040", help: "Incremental beyond the EIA efficiency baseline. 0% avoids double counting.", fmt: "pct", group: "Operations"}
+  ground_elec:      {default: 0.00, min: 0.0,  max: 1.00, step: 0.05, label: "Ground electrification by 2040", help: "Share of Scope 1 vehicle emissions removed.", fmt: "pct", group: "Operations"}
+  novel_propulsion: {default: 0.00, min: 0.0,  max: 0.50, step: 0.05, label: "Novel propulsion by 2040", help: "Zero-carbon propulsion proxy displacing liquid-fuel activity.", fmt: "pct", group: "Operations"}
+  carbon_price:     {default: 200,  min: 25,   max: 500,  step: 25,   label: "Carbon planning price ($/t)", help: "Single planning price on modeled 2040 residual. CORSIA midpoint reference is $59/t; durable removal benchmark is $200/t.", fmt: "usd", group: "Money"}
+  catalytic_pct:    {default: 0.00, min: 0.0,  max: 0.05, step: 0.005, label: "Catalytic capital (% revenue)", help: "Strategic investment that adds SAF capacity after a 3-year lag. Supply effect only; no price discount.", fmt: "pct", group: "Money"}
+  investable_pct:   {default: 0.03, min: 0.0,  max: 0.10, step: 0.005, label: "Investable cash (% revenue)", help: "Explicit budget assumption. 2025 OCF/revenue was 8.4%, but OCF also funds normal capex, debt service and working capital, so only part of it is investable in decarbonization.", fmt: "pct", group: "Money"}
+  activity_adj:     {default: 0.00, min: -0.03, max: 0.03, step: 0.005, label: "Activity vs FAA (%/yr)", help: "0% = FAA system ASM baseline.", fmt: "pct", group: "Baselines"}
+  efficiency_adj:   {default: 0.00, min: -0.02, max: 0.02, step: 0.005, label: "Efficiency vs EIA (%/yr)", help: "0% = EIA aircraft-efficiency baseline.", fmt: "pct", group: "Baselines"}
+  saf_supply_case:  {default: "Base", options: ["Base", "Conservative"], label: "US SAF supply case", help: "Base = Rystad 190k bpd 2035; Conservative = 110k bpd.", fmt: "choice", group: "Baselines"}
+  post_2035_growth: {default: 0.10, min: 0.0,  max: 0.20, step: 0.01, label: "Post-2035 SAF growth (%/yr)", help: "Explicit growth after the last published 2035 anchor. 0% holds it flat.", fmt: "pct", group: "Baselines"}
+
+# Backend anchors. Not user-editable.
+anchors:
+  saf_lifecycle_reduction: 0.80      # Alaska: SAF can cut lifecycle emissions up to ~80%
+  fleet_fuel_advantage: 0.20         # newer aircraft ~15-25% more efficient per seat; midpoint proxy
+  neutralization_share: 1.00         # share of 2040 residual neutralized
+  saf_capital_intensity: 14.6666666667  # $ per annual gallon of capacity (DOE: >$44B for >3B gal/yr)
+  catalytic_lag_years: 3
+  saf_2030_probable: 2048980612      # peer-reviewed probable production
+  saf_2035_base: 2912700000          # Rystad base 190k bpd
+  saf_2035_conservative: 1686300000  # Rystad low 110k bpd
+  saf_2025_actual: 287728509         # EPA RFS full-year actual
+  corsia_reference_price: 59
+  removal_benchmark_price: 200
+
+sources:
+  FAA Aerospace Forecast: https://www.faa.gov/data_research/aviation/aerospace_forecasts/FY_2026-2046_Full_Forecast_Document_Tables.pdf
+  EIA Annual Energy Outlook: https://www.eia.gov/outlooks/aeo/
+  DOE SAF Liftoff: https://www.energy.gov/articles/us-department-energy-releases-new-report-pathways-commercial-liftoff-sustainable-aviation
+  SAF 2030 probable production: https://www.sciencedirect.com/science/article/pii/S0961953425009274
+  Rystad 2035 SAF cases: https://www.rystadenergy.com/news/booming-biofuels-us-diesel-sustainable-aviation-fuel
+  MSCI CORSIA costs: https://www.msci.com/research-and-insights/paper/corsia-costs-and-implications-for-the-airline-industry
+  EPA RFS renewable jet: https://www.epa.gov/fuels-registration-reporting-and-compliance-help/spreadsheet-rin-generation-and-renewable-fuel-0
+  Nasdaq/Puro carbon removal: https://www.nasdaq.com/products/european-markets/carbon-removal-platform

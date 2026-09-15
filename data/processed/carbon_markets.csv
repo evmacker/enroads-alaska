@@ -1,0 +1,7 @@
+instrument,price,units,volume_tco2e,timeframe,use,status,source
+Broad voluntary carbon credits,3.5,$/tCO2e,202000000.0,2025 retirements,Context only; not used in active model,Unused / context,https://www.msci.com/research-and-insights/blog-post/carbon-credits-come-of-age-in-2025
+Higher-rated voluntary credits (BBB+),6.8,$/tCO2e,,2025 average,Context only,Unused / context,https://www.msci.com/research-and-insights/blog-post/carbon-credits-come-of-age-in-2025
+CORSIA-eligible credits,59.0,$/tCO2e midpoint,,2033–2035,Reference for airline compliance exposure; not blended into net-zero closure cost,Unused / context,https://www.msci.com/research-and-insights/paper/corsia-costs-and-implications-for-the-airline-industry
+Durable carbon removal planning benchmark,200.0,$/tCO2e,,Planning value,Reference supporting the active $200/t default,Active assumption reference,https://www.nasdaq.com/products/european-markets/carbon-removal-platform
+Puro CORCX observed reference,150.4,EUR/tCO2e,1875765.0,Aug/Sep 2026,Observed durable-removal market reference only,Unused / context,https://www.nasdaq.com/products/european-markets/carbon-removal-platform
+Active model carbon planning price,200.0,$/tCO2e,,Scenario,Residual emissions × planning price × neutralization share,ACTIVE,Inputs!B14

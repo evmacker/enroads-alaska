@@ -13,9 +13,19 @@ streamlit run app.py
 
 | | Question | Where |
 |---|---|---|
-| **2030** | Does intensity reduction vs 2019 land in Alaska's 10–14% band? | target-band chart |
+| **2030** | Does intensity reduction vs 2019 land in Alaska's 10–14% band? | KPI grid + projection chart |
 | **2040 physical** | How many tonnes remain after efficiency, fleet, SAF, electrification and propulsion? | abatement waterfall |
-| **2040 financial** | **Share of investable cash remaining after net-zero closure** | budget bar + headline KPI |
+| **2040 financial** | What do SAF and offsets cost, as dollars and as a share of revenue? | KPI grid |
+
+The page opens on a 2030 | 2040 KPI grid — six matching figures per milestone year
+(intensity reduction, tonnes needing offset, SAF cost, offset cost, and each cost as a
+share of projected revenue) — over a full-width intensity-reduction projection with the
+2030 target band shaded. Below that sits the abatement waterfall, then a tab strip for
+SAF supply vs demand, the carbon market, the emissions pathway, the annual table and the
+model notes.
+
+The investable-cash headroom KPI and its budget-bar chart are still in the engine
+(`financial_2040`) and in `src/viz.py::budget_bar`, but are not currently on the page.
 
 ## Layout
 

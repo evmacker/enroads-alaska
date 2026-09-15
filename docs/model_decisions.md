@@ -51,6 +51,22 @@ Lever attribution in the waterfall runs in a fixed order (fleet renewal → nove
 propulsion → ground electrification → SAF). Overlapping levers make attribution
 order-dependent, so the order is part of the model definition, not a UI choice.
 
+**Offset cost is priced every year (new).** The KPI grid reports, for both 2030 and 2040,
+what it would cost to neutralize that year's residual at the planning price. Only 2040
+closure is actually *charged* in the financial model — `closure_cost` stays 2040-only
+because it is the workbook's own column and parity depends on it. The annual figure lives
+in a separate `offset_cost` field so the two never get confused.
+
+**Carbon market supply (new, presentational only).** Alaska's annual offset demand is
+charted against the durable removal market, grown from its one observed volume
+(1.88 Mt, Puro CORCX, Aug/Sep 2026) at an explicit user rate defaulting to 0%. There is
+no published forward anchor for this market the way there is for SAF, so nothing is
+fitted — the same reasoning that keeps SAF supply on published anchors rather than a
+trend line. Carbon supply **never constrains the model**; it cannot change emissions or
+cost, and a test enforces that. For scale, the whole voluntary market retired 202 Mt in
+2025, so Alaska's 2040 residual alone is roughly 3.5% of it and about 3.8× the entire
+observed durable removal market.
+
 **2040 — financial feasibility (new).** The headline KPI:
 
 ```

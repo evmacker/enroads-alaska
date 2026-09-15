@@ -21,6 +21,7 @@ inputs:
   efficiency_adj:   {default: 0.00, min: -0.02, max: 0.02, step: 0.005, label: "Efficiency vs EIA (%/yr)", help: "0% = EIA aircraft-efficiency baseline.", fmt: "pct", group: "Baselines"}
   saf_supply_case:  {default: "Base", options: ["Base", "Conservative"], label: "US SAF supply case", help: "Base = Rystad 190k bpd 2035; Conservative = 110k bpd.", fmt: "choice", group: "Baselines"}
   post_2035_growth: {default: 0.10, min: 0.0,  max: 0.20, step: 0.01, label: "Post-2035 SAF growth (%/yr)", help: "Explicit growth after the last published 2035 anchor. 0% holds it flat.", fmt: "pct", group: "Baselines"}
+  removal_growth:   {default: 0.00, min: 0.0,  max: 0.60, step: 0.05, label: "Durable removal market growth (%/yr)", help: "Growth of the durable carbon removal market from its observed Aug/Sep 2026 volume. 0% avoids hidden extrapolation; there is no published forward supply anchor, so this is yours to set. Presentational only - it never constrains the model.", fmt: "pct", group: "Baselines"}
 
 # Backend anchors. Not user-editable.
 anchors:

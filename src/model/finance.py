@@ -18,6 +18,17 @@ def closure_cost(residual_emis, carbon_price, neutralization_share):
     return residual_emis * carbon_price * neutralization_share
 
 
+def carbon_supply(year, observed_volume, observed_year, growth):
+    """Durable removal supply grown from its one observed volume.
+
+    There is no published forward anchor for this market the way there is for SAF, so
+    growth is an explicit user input defaulting to 0% rather than a fitted trend.
+    """
+    if year <= observed_year:
+        return observed_volume
+    return observed_volume * (1 + growth) ** (year - observed_year)
+
+
 def headroom(revenue, investable_pct, physical_spend, closure):
     """Can the modeled pathway be funded from the stated investable-cash budget?"""
     pool = revenue * investable_pct

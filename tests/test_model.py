@@ -138,3 +138,62 @@ def test_default_scenario_is_unaffordable_on_the_default_budget(data):
 
 def test_model_is_deterministic(data):
     assert scenario(data).pathway.equals(scenario(data).pathway)
+
+
+# --- offsets, carbon market and milestones ------------------------------------
+
+def test_offset_cost_is_priced_every_year(data):
+    """Unlike closure_cost (2040 only, for workbook parity), offsets are priced annually."""
+    pathway = scenario(data).pathway.set_index("year")
+    assert (pathway["offset_cost"] > 0).all()
+    assert pathway.loc[2040, "offset_cost"] == pytest.approx(pathway.loc[2040, "closure_cost"])
+    assert (pathway.loc[2025:2039, "closure_cost"] == 0).all()
+
+
+def test_offset_cost_matches_residual_times_price(data):
+    row = scenario(data, carbon_price=150).pathway.set_index("year").loc[2030]
+    assert row["offset_cost"] == pytest.approx(row["residual_emis"] * 150, rel=1e-12)
+    assert row["offset_share_revenue"] == pytest.approx(row["offset_cost"] / row["revenue"], rel=1e-12)
+
+
+def test_carbon_supply_is_flat_at_zero_growth(data):
+    supply = scenario(data, removal_growth=0.0).pathway["carbon_supply"]
+    assert supply.nunique() == 1
+    assert supply.iloc[0] == pytest.approx(data["removal_volume"], rel=1e-12)
+
+
+def test_carbon_supply_growth_compounds_from_the_observed_year(data):
+    pathway = scenario(data, removal_growth=0.20).pathway.set_index("year")
+    assert pathway.loc[2026, "carbon_supply"] == pytest.approx(data["removal_volume"], rel=1e-12)
+    assert pathway.loc[2036, "carbon_supply"] == pytest.approx(
+        data["removal_volume"] * 1.20 ** 10, rel=1e-12)
+
+
+def test_carbon_supply_never_constrains_the_model(data):
+    """The carbon chart is presentational — supply must not feed back into emissions or cost."""
+    lean, rich = scenario(data, removal_growth=0.0), scenario(data, removal_growth=0.60)
+    assert lean.physical_2040["residual_emis"] == pytest.approx(rich.physical_2040["residual_emis"])
+    assert lean.financial_2040["carbon_closure_cost"] == pytest.approx(
+        rich.financial_2040["carbon_closure_cost"])
+
+
+def test_milestones_expose_identical_keys_for_both_years(data):
+    m = scenario(data).milestones
+    assert set(m) == {2030, 2040}
+    assert set(m[2030]) == set(m[2040])
+
+
+def test_only_2030_carries_a_band_verdict(data):
+    """The 10-14% band is a 2030 target; 2040 must not inherit its pass/fail state."""
+    m = scenario(data).milestones
+    assert m[2030]["state"] in {"below", "meets", "exceeds"}
+    assert m[2040]["state"] is None
+
+
+def test_milestone_figures_agree_with_the_pathway(data):
+    r = scenario(data, carbon_price=125, saf_premium=0.5)
+    for year, m in r.milestones.items():
+        row = r.pathway.set_index("year").loc[year]
+        assert m["saf_cost"] == pytest.approx(row["net_saf_premium"], rel=1e-12)
+        assert m["offset_cost"] == pytest.approx(row["offset_cost"], rel=1e-12)
+        assert m["residual_emis"] == pytest.approx(row["residual_emis"], rel=1e-12)

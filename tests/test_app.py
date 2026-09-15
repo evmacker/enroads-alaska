@@ -20,7 +20,7 @@ def run(overrides=None):
 
 def test_app_renders_with_defaults():
     at = run()
-    assert len(at.slider) == 13 and len(at.selectbox) == 1   # 14 scenario controls
+    assert len(at.slider) == 14 and len(at.selectbox) == 1   # 15 scenario controls
     assert any("Alaska Airlines decarbonization pathway" in m.value for m in at.markdown)
 
 
@@ -39,8 +39,17 @@ def test_moving_a_slider_changes_the_headline():
 
 def test_all_tabs_and_charts_render():
     at = run()
-    assert len(at.tabs) == 4
+    assert len(at.tabs) == 5          # SAF, carbon, pathway, table, notes
     assert len(at.dataframe) == 1
+
+
+def test_kpi_grid_shows_both_milestone_years():
+    """Twelve tiles: six figures for 2030 and the same six for 2040."""
+    body = " ".join(m.value for m in run().markdown)
+    assert body.count("Carbon emissions needing offset") == 2
+    assert body.count("Total cost to invest in SAF") == 2
+    assert body.count("Share of revenue to offsets") == 2
+    assert "2030 intensity reduction" in body and "2040 intensity reduction" in body
 
 
 @pytest.mark.parametrize("index, value", [(0, 50.0), (1, 100.0), (7, 500.0), (9, 10.0), (10, 3.0)])

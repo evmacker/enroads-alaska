@@ -22,6 +22,14 @@ def main():
                               "Actual Status": "status"}).dropna(subset=["epa_gallons"])
     saf.astype({"year": int}).to_csv(OUT / "saf_history.csv", index=False)
 
+    carbon = pd.read_excel(RAW, "Carbon Markets", skiprows=2, usecols="A:H").dropna(
+        subset=["Market / Instrument"])
+    carbon = carbon.rename(columns={
+        "Market / Instrument": "instrument", "Reference Price": "price", "Units": "units",
+        "Availability / Volume": "volume_tco2e", "Timeframe": "timeframe",
+        "How we use it": "use", "Status": "status", "Source URL": "source"})
+    carbon.to_csv(OUT / "carbon_markets.csv", index=False)
+
     base = pd.read_excel(RAW, "Alaska Base", usecols="A:E").dropna(subset=["Metric"])
     base.rename(columns={"Metric": "metric", "Year": "year", "Value": "value",
                          "Units": "units", "Source": "source"}).to_csv(

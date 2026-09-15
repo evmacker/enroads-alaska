@@ -39,13 +39,33 @@ def tile(label, value, sub, state=None):
     colour = viz.STATE_COLOR.get(state, viz.INK)
     icon = f"{viz.STATE_ICON[state]} " if state else ""
     st.markdown(
-        f"<div style='padding:.7rem .9rem;border:1px solid {viz.GRID};border-radius:10px;"
-        f"background:#fff;height:100%'>"
-        f"<div style='color:{viz.MUTED};font-size:.78rem;text-transform:uppercase;"
-        f"letter-spacing:.04em'>{label}</div>"
-        f"<div style='color:{colour};font-size:1.8rem;font-weight:650;line-height:1.25'>{value}</div>"
-        f"<div style='color:{viz.MUTED};font-size:.82rem'>{icon}{sub}</div></div>",
+        f"<div style='padding:.55rem .75rem;border:1px solid {viz.GRID};border-radius:9px;"
+        f"background:#fff;height:100%;min-height:5.4rem'>"
+        f"<div style='color:{viz.MUTED};font-size:.72rem;line-height:1.3'>{label}</div>"
+        f"<div style='color:{colour};font-size:1.45rem;font-weight:650;line-height:1.35'>{value}</div>"
+        f"<div style='color:{viz.MUTED};font-size:.72rem;line-height:1.3'>{icon}{sub}</div></div>",
         unsafe_allow_html=True)
+
+
+def milestone_tiles(m, carbon_price):
+    """The six KPI figures for one milestone year, in the 3x2 grid from the layout spec."""
+    rows = [
+        [(f"{m['year']} intensity reduction", f"{m['reduction']:.1%}", m["label"], m["state"]),
+         ("Carbon emissions needing offset", f"{m['residual_emis']/1e6:,.2f} Mt",
+          "residual after physical levers", None)],
+        [("Total cost to invest in SAF", money(m["saf_cost"]),
+          "net premium after partner support", None),
+         ("Total cost to buy carbon offsets", money(m["offset_cost"]),
+          f"at ${carbon_price:,.0f}/t", None)],
+        [("Share of proj. revenue to SAF", f"{m['saf_share_revenue']:.1%}",
+          f"of {money(m['revenue'])} revenue", None),
+         ("Share of revenue to offsets", f"{m['offset_share_revenue']:.1%}",
+          f"of {money(m['revenue'])} revenue", None)],
+    ]
+    for row in rows:
+        for column, args in zip(st.columns(2), row):
+            with column:
+                tile(*args)
 
 
 # ---- inputs ----------------------------------------------------------------
@@ -67,57 +87,37 @@ st.markdown("#### Alaska Airlines decarbonization pathway")
 st.caption("A stripped-down En-ROADS for one airline: move the levers, see whether the "
            "2030 intensity target lands and whether 2040 net zero is affordable.")
 
-a, b, c = st.columns(3)
-with a:
-    tile("2030 intensity reduction", f"{o30['reduction']:.1%}", o30["label"], o30["state"])
-with b:
-    tile("2040 physical residual", f"{p40['residual_emis']/1e6:,.2f} Mt",
-         f"{p40['reduction_vs_2019']:.0%} intensity cut — closure brings this to zero")
-with c:
-    tile("Cash headroom after net zero", f"{f40['cash_headroom']:+.0%}", f40["label"], f40["state"])
+left, right = st.columns(2, gap="medium")
+for column, year in ((left, 2030), (right, 2040)):
+    with column:
+        st.markdown(f"<div style='text-align:center;font-size:1.1rem;font-weight:650;"
+                    f"padding-bottom:.45rem'>{year}</div>", unsafe_allow_html=True)
+        milestone_tiles(result.milestones[year], values["carbon_price"])
+
+st.markdown("")
+st.plotly_chart(viz.intensity_projection(result.pathway, o30), width="stretch",
+                config={"displayModeBar": False})
+need = o30["required_saf_share"]
+st.caption(
+    f"2030 effective SAF share {o30['effective_saf_share']:.1%} "
+    f"({o30['market_capture']:.1%} of modeled US supply). Hitting 10% needs "
+    f"{need['10%']:.1%} SAF, 14% needs {need['14%']:.1%}. Offset cost assumes the full "
+    f"residual is neutralized at ${values['carbon_price']:,.0f}/t — in the model only 2040 "
+    "closure is actually charged; the 2030 figure is what it would cost today.")
 
 st.divider()
-
-# ---- 2030 -------------------------------------------------------------------
-left, right = st.columns([1, 1])
-with left:
-    st.markdown("**2030 — does it land in the target band?**")
-    st.plotly_chart(viz.target_band_2030(o30), width="stretch",
-                    config={"displayModeBar": False})
-    need = o30["required_saf_share"]
-    st.caption(
-        f"Effective SAF share {o30['effective_saf_share']:.1%} "
-        f"({o30['market_capture']:.1%} of modeled US supply). "
-        f"Hitting 10% needs {need['10%']:.1%} SAF, 14% needs {need['14%']:.1%}. "
-        f"Net SAF premium {money(o30['net_saf_premium'])} "
-        f"({o30['saf_cost_share_revenue']:.1%} of revenue).")
-with right:
-    st.markdown("**2040 — what is left after the physical levers?**")
-    st.plotly_chart(viz.abatement_waterfall(p40), width="stretch",
-                    config={"displayModeBar": False})
-    st.caption(
-        f"Physical levers leave {p40['residual_emis']/1e6:,.2f} Mt in 2040; carbon closure "
-        f"neutralizes it at ${values['carbon_price']:,.0f}/t. Levers are attributed in a fixed "
-        f"order ({', '.join(label for _, label in LEVER_ORDER)}), since overlapping levers make "
-        "attribution order-dependent.")
-
-# ---- 2040 money -------------------------------------------------------------
-st.markdown("**2040 — can the pathway be funded from the investable-cash budget?**")
-st.plotly_chart(viz.budget_bar(f40), width="stretch", config={"displayModeBar": False})
-coverage = f40["closure_coverage"]
+st.markdown("**2040 — what is left after the physical levers?**")
+st.plotly_chart(viz.abatement_waterfall(p40), width="stretch", config={"displayModeBar": False})
 st.caption(
-    f"Investable cash pool {money(f40['investable_pool'])} = revenue {money(f40['revenue'])} × "
-    f"{values['investable_pct']:.1%}. Physical decarb spend {money(f40['physical_decarb_spend'])}, "
-    f"carbon closure {money(f40['carbon_closure_cost'])} at ${values['carbon_price']:,.0f}/t. "
-    f"Closure coverage {coverage:.2f}× "
-    f"({'funded' if coverage >= 1 else 'unfunded'}). "
-    f"For reference, 2025 operating cash flow was "
-    f"{result.diagnostics['ocf_share_revenue_2025']:.1%} of revenue — and it also funds "
-    "normal capex, debt service and working capital.")
+    f"Physical levers leave {p40['residual_emis']/1e6:,.2f} Mt in 2040; carbon closure "
+    f"neutralizes it at ${values['carbon_price']:,.0f}/t. Levers are attributed in a fixed "
+    f"order ({', '.join(label for _, label in LEVER_ORDER)}), since overlapping levers make "
+    "attribution order-dependent.")
 
 # ---- discovery --------------------------------------------------------------
 st.divider()
-t1, t2, t3, t4 = st.tabs(["SAF supply vs demand", "Emissions pathway", "Annual table", "Model notes"])
+t1, tc, t2, t3, t4 = st.tabs(["SAF supply vs demand", "Carbon market", "Emissions pathway",
+                              "Annual table", "Model notes"])
 with t1:
     st.plotly_chart(viz.saf_supply_chart(result.pathway, DATA["saf_history"]),
                     width="stretch", config={"displayModeBar": False})
@@ -128,6 +128,21 @@ with t1:
                + (f"This scenario is short {gap/1e6:,.0f}M gallons in 2040, so the "
                   "effective SAF share is capped below the target."
                   if gap > 0 else "This scenario stays inside modeled US supply."))
+with tc:
+    st.plotly_chart(viz.carbon_market_chart(result.pathway, DATA), width="stretch",
+                    config={"displayModeBar": False})
+    crossover = viz._crossover_year(result.pathway)
+    st.caption(
+        f"Alaska's 2040 residual of {p40['residual_emis']/1e6:,.2f} Mt against a durable removal "
+        f"market observed at {DATA['removal_volume']/1e6:,.2f} Mt "
+        f"({DATA['removal_volume_year']}) and a whole voluntary market of "
+        f"{DATA['voluntary_volume']/1e6:,.0f} Mt retired in {DATA['voluntary_volume_year']}. "
+        + (f"At the selected growth rate the removal market covers Alaska from {crossover}."
+           if crossover else
+           "At the selected growth rate the durable removal market never covers Alaska alone — "
+           "raise 'durable removal market growth' in the sidebar to find the rate that would.")
+        + " Log scale. This chart is presentational: carbon supply never constrains the model.")
+
 with t2:
     st.plotly_chart(viz.emissions_pathway(result.pathway), width="stretch",
                     config={"displayModeBar": False})
@@ -135,7 +150,8 @@ with t2:
 with t3:
     cols = ["year", "activity_index", "efficiency_index", "liquid_fuel_gal", "effective_saf_share",
             "saf_availability", "market_capture", "intensity", "reduction_vs_2019",
-            "residual_emis", "revenue", "net_saf_premium", "investable_pool", "closure_cost"]
+            "residual_emis", "revenue", "net_saf_premium", "offset_cost", "carbon_supply",
+            "investable_pool", "closure_cost"]
     st.dataframe(result.pathway[cols], width="stretch", hide_index=True, height=440)
     st.download_button("Download pathway CSV", result.pathway.to_csv(index=False),
                        "alaska_pathway.csv", "text/csv")

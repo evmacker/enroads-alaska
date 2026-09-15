@@ -31,23 +31,27 @@ def _frame(fig, height, xtitle=None, ytitle=None, legend=False):
     return fig
 
 
-def target_band_2030(outcome):
-    """Where the scenario lands against the 10–14% reduction band."""
+def intensity_projection(pathway, outcome, target_year=2030):
+    """Intensity reduction vs 2019 across the pathway, with the 2030 target band shaded."""
     low, high = outcome["band"]
-    reduction, colour = outcome["reduction"], STATE_COLOR[outcome["state"]]
-    top = max(high, reduction) * 1.4
+    colour = STATE_COLOR[outcome["state"]]
+    reduction = outcome["reduction"]
     fig = go.Figure()
-    fig.add_vrect(x0=low, x1=high, fillcolor=BAND, opacity=1, line_width=0, layer="below",
-                  annotation_text="target band", annotation_position="top left",
+    fig.add_hrect(y0=low, y1=high, fillcolor=BAND, opacity=1, line_width=0, layer="below",
+                  annotation_text="2030 target band 10-14%", annotation_position="top left",
                   annotation_font=dict(color=MUTED, size=11))
-    fig.add_trace(go.Bar(
-        x=[reduction], y=[""], orientation="h", marker=dict(color=colour), width=0.3,
-        hovertemplate="Reduction vs 2019: %{x:.1%}<extra></extra>"))
-    fig.add_annotation(x=reduction, y=0, text=f"<b>{reduction:.1%}</b>", showarrow=False,
-                       xanchor="left", xshift=8, font=dict(color=INK, size=15))
-    fig.update_xaxes(range=[0, top], tickformat=".0%")
-    fig.update_yaxes(showgrid=False)
-    return _frame(fig, 150, xtitle="Intensity reduction vs 2019  ·  Alaska target 10–14%")
+    fig.add_trace(go.Scatter(
+        x=pathway.year, y=pathway.reduction_vs_2019, mode="lines", name="Modeled reduction",
+        line=dict(color=SERIES["blue"], width=2),
+        hovertemplate="%{x}: %{y:.1%} below 2019<extra></extra>"))
+    fig.add_trace(go.Scatter(
+        x=[target_year], y=[reduction], mode="markers", name=f"{target_year} outcome",
+        marker=dict(color=colour, size=12, line=dict(color=SURFACE, width=2)),
+        hovertemplate=f"{target_year}: %{{y:.1%}} below 2019<extra></extra>"))
+    fig.add_annotation(x=target_year, y=reduction, text=f"<b>{reduction:.1%}</b>", showarrow=False,
+                       yshift=20, font=dict(color=INK, size=14))
+    fig.update_yaxes(tickformat=".0%", rangemode="tozero")
+    return _frame(fig, 330, ytitle="Intensity reduction vs 2019")
 
 
 def abatement_waterfall(physical):
@@ -131,3 +135,40 @@ def emissions_pathway(pathway):
                   annotation_font=dict(color=MUTED, size=11))
     fig.update_yaxes(tickformat=".1f", rangemode="tozero")
     return _frame(fig, 310, ytitle="MtCO2e per year (operational residual)")
+
+
+def carbon_market_chart(pathway, data):
+    """Alaska's annual offset demand against observed carbon-market supply.
+
+    Supply here is one observed volume grown at an explicit user rate — there is no
+    published forward anchor for durable removals, so nothing is fitted or implied.
+    """
+    import math
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=pathway.year, y=pathway.residual_emis / MT, name="Alaska offset demand", mode="lines",
+        line=dict(color=SERIES["orange"], width=2),
+        hovertemplate="%{y:.2f} Mt needing offset<extra>Alaska</extra>"))
+    fig.add_trace(go.Scatter(
+        x=pathway.year, y=pathway.carbon_supply / MT, name="Durable removal supply", mode="lines",
+        line=dict(color=SERIES["blue"], width=2),
+        hovertemplate="%{y:.2f} Mt available<extra>Durable removals</extra>"))
+    crossover = _crossover_year(pathway)
+    if crossover:
+        fig.add_vline(x=crossover, line=dict(color=MUTED, width=1, dash="dot"),
+                      annotation_text=f"break-even {crossover}", annotation_position="bottom right",
+                      annotation_font=dict(color=INK, size=11))
+    # Log scale with an explicit range: supply spans two orders of magnitude across the
+    # growth slider, and autorange on a log axis mis-scales badly.
+    lo = min(pathway.residual_emis.min(), pathway.carbon_supply.min()) / MT
+    hi = max(pathway.residual_emis.max(), pathway.carbon_supply.max()) / MT
+    fig.update_yaxes(type="log", range=[math.log10(lo * 0.55), math.log10(hi * 1.8)],
+                     dtick="D2", ticksuffix=" Mt")
+    return _frame(fig, 310, ytitle="MtCO2e per year (log scale)", legend=True)
+
+
+def _crossover_year(pathway):
+    """First year durable removal supply covers Alaska's offset demand, if it ever does."""
+    covered = pathway[pathway.carbon_supply >= pathway.residual_emis]
+    return int(covered.year.iloc[0]) if len(covered) else None

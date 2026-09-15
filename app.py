@@ -82,7 +82,7 @@ st.divider()
 left, right = st.columns([1, 1])
 with left:
     st.markdown("**2030 — does it land in the target band?**")
-    st.plotly_chart(viz.target_band_2030(o30), use_container_width=True,
+    st.plotly_chart(viz.target_band_2030(o30), width="stretch",
                     config={"displayModeBar": False})
     need = o30["required_saf_share"]
     st.caption(
@@ -93,7 +93,7 @@ with left:
         f"({o30['saf_cost_share_revenue']:.1%} of revenue).")
 with right:
     st.markdown("**2040 — what is left after the physical levers?**")
-    st.plotly_chart(viz.abatement_waterfall(p40), use_container_width=True,
+    st.plotly_chart(viz.abatement_waterfall(p40), width="stretch",
                     config={"displayModeBar": False})
     st.caption(
         f"Physical levers leave {p40['residual_emis']/1e6:,.2f} Mt in 2040; carbon closure "
@@ -103,7 +103,7 @@ with right:
 
 # ---- 2040 money -------------------------------------------------------------
 st.markdown("**2040 — can the pathway be funded from the investable-cash budget?**")
-st.plotly_chart(viz.budget_bar(f40), use_container_width=True, config={"displayModeBar": False})
+st.plotly_chart(viz.budget_bar(f40), width="stretch", config={"displayModeBar": False})
 coverage = f40["closure_coverage"]
 st.caption(
     f"Investable cash pool {money(f40['investable_pool'])} = revenue {money(f40['revenue'])} × "
@@ -120,7 +120,7 @@ st.divider()
 t1, t2, t3, t4 = st.tabs(["SAF supply vs demand", "Emissions pathway", "Annual table", "Model notes"])
 with t1:
     st.plotly_chart(viz.saf_supply_chart(result.pathway, DATA["saf_history"]),
-                    use_container_width=True, config={"displayModeBar": False})
+                    width="stretch", config={"displayModeBar": False})
     gap = p40["supply_gap_gal"]
     st.caption("EPA RFS full-year actuals through 2025 (2026 is a partial-year cut and is "
                "excluded); forward supply follows published anchors "
@@ -129,14 +129,14 @@ with t1:
                   "effective SAF share is capped below the target."
                   if gap > 0 else "This scenario stays inside modeled US supply."))
 with t2:
-    st.plotly_chart(viz.emissions_pathway(result.pathway), use_container_width=True,
+    st.plotly_chart(viz.emissions_pathway(result.pathway), width="stretch",
                     config={"displayModeBar": False})
     st.caption("Operational Scope 1 + market-based Scope 2. Scope 3 is excluded from the model.")
 with t3:
     cols = ["year", "activity_index", "efficiency_index", "liquid_fuel_gal", "effective_saf_share",
             "saf_availability", "market_capture", "intensity", "reduction_vs_2019",
             "residual_emis", "revenue", "net_saf_premium", "investable_pool", "closure_cost"]
-    st.dataframe(result.pathway[cols], use_container_width=True, hide_index=True, height=440)
+    st.dataframe(result.pathway[cols], width="stretch", hide_index=True, height=440)
     st.download_button("Download pathway CSV", result.pathway.to_csv(index=False),
                        "alaska_pathway.csv", "text/csv")
 with t4:

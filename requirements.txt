@@ -1,4 +1,7 @@
-streamlit>=1.38
-pandas>=2.0
-plotly>=5.20
-pyyaml>=6.0
+# Ranges verified at both ends: streamlit 1.51/1.63, pandas 2.3/3.0, plotly 6.3/7.0.
+# Major-version caps keep a future breaking release from taking the live demo down
+# on the next push, since Streamlit Cloud rebuilds deps on every deploy.
+streamlit>=1.50,<2
+pandas>=2.0,<4
+plotly>=5.20,<8
+pyyaml>=6.0,<7

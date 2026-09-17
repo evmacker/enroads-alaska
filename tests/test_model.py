@@ -319,3 +319,23 @@ def test_bau_falls_short_of_the_2030_floor(data):
 
 def test_scenario_beats_bau_at_default_settings(data):
     assert scenario(data).outcome_2030["reduction"] > bau_reference()["reduction_2030"]
+
+
+def test_catalytic_capital_abates_nothing_when_supply_does_not_bind(data):
+    """Pins a trap in the model: unconstrained, this lever is cost with no emissions effect."""
+    off, on = scenario(data, catalytic_pct=0.0), scenario(data, catalytic_pct=0.02)
+    assert (on.pathway["supply_gap_gal"] == 0).all()           # supply never binds here
+    assert on.physical_2040["residual_emis"] == pytest.approx(
+        off.physical_2040["residual_emis"], rel=1e-12)
+    assert on.financial_2040["physical_decarb_spend"] > off.financial_2040["physical_decarb_spend"]
+    assert on.pathway.set_index("year").loc[2040, "market_capture"] < \
+        off.pathway.set_index("year").loc[2040, "market_capture"]
+
+
+def test_catalytic_capital_does_abate_when_supply_binds(data):
+    bind = dict(saf_share_2040=1.0, saf_supply_case="Conservative",
+                post_2035_growth=0.01, activity_adj=0.03)
+    off = scenario(data, catalytic_pct=0.0, **bind)
+    on = scenario(data, catalytic_pct=0.02, **bind)
+    assert off.pathway.set_index("year").loc[2040, "supply_gap_gal"] > 0
+    assert on.physical_2040["residual_emis"] < off.physical_2040["residual_emis"]

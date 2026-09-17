@@ -20,7 +20,11 @@ def run(overrides=None):
 
 def test_app_renders_with_defaults():
     at = run()
-    assert len(at.slider) == 14 and len(at.selectbox) == 1   # 15 scenario controls
+    assert len(at.slider) == 13 and len(at.selectbox) == 0   # 13 visible scenario controls
+    # visible:false inputs render no widget at all; the engine still gets their config default.
+    labels = [w.label for w in list(at.slider) + list(at.selectbox)]
+    assert not any("Investable cash" in x or "supply case" in x for x in labels)
+    assert "Carbon planning price ($/t)" in labels
     assert any("Alaska Airlines decarbonization pathway" in m.value for m in at.markdown)
 
 
@@ -52,7 +56,7 @@ def test_kpi_grid_shows_both_milestone_years():
     assert "2030 intensity reduction" in body and "2040 intensity reduction" in body
 
 
-@pytest.mark.parametrize("index, value", [(0, 50.0), (1, 100.0), (7, 500.0), (9, 10.0), (10, 3.0)])
+@pytest.mark.parametrize("index, value", [(0, 50.0), (1, 100.0), (7, 5.0), (8, 3.0), (11, 500.0)])
 def test_extreme_slider_positions_do_not_break_the_app(index, value):
     run({index: value})
 

@@ -3,6 +3,7 @@
 All arithmetic lives in src/model. This file reads inputs, calls run_scenario once,
 and draws the result.
 """
+import dataclasses
 import sys
 from pathlib import Path
 
@@ -10,7 +11,7 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 import viz  # noqa: E402
-from model import ScenarioInputs, bau_reference, load_data, run_scenario  # noqa: E402
+from model import bau_reference, default_inputs, load_data, run_scenario  # noqa: E402
 from model.core import LEVER_ORDER  # noqa: E402
 
 st.set_page_config(page_title="Alaska Airlines decarbonization", page_icon="✈️", layout="wide")
@@ -73,13 +74,16 @@ with st.sidebar:
     st.subheader("Scenario")
     values = {}
     for group in GROUPS:
+        keys = [k for k, s in SPEC.items() if s["group"] == group and s.get("visible", True)]
+        if not keys:
+            continue
         with st.expander(group, expanded=group in ("SAF", "Money")):
-            for key, s in SPEC.items():
-                if s["group"] == group:
-                    values[key] = control(key)
+            for key in keys:
+                values[key] = control(key)
     st.caption("Defaults reproduce the source workbook. Model runs 2025→2040.")
 
-result = run_scenario(ScenarioInputs(**values), DATA)
+inputs = dataclasses.replace(default_inputs(DATA), **values)
+result = run_scenario(inputs, DATA)
 o30, p40, f40 = result.outcome_2030, result.physical_2040, result.financial_2040
 
 # ---- headline ---------------------------------------------------------------
@@ -92,7 +96,7 @@ for column, year in ((left, 2030), (right, 2040)):
     with column:
         st.markdown(f"<div style='text-align:center;font-size:1.1rem;font-weight:650;"
                     f"padding-bottom:.45rem'>{year}</div>", unsafe_allow_html=True)
-        milestone_tiles(result.milestones[year], values["carbon_price"])
+        milestone_tiles(result.milestones[year], inputs.carbon_price)
 
 st.markdown("")
 BAU = bau_reference()
@@ -108,7 +112,7 @@ st.caption(
     f"2030 effective SAF share {o30['effective_saf_share']:.1%} "
     f"({o30['market_capture']:.1%} of modeled US supply). Hitting 10% needs "
     f"{need['10%']:.1%} SAF, 14% needs {need['14%']:.1%}. Offset cost assumes the full "
-    f"residual is neutralized at ${values['carbon_price']:,.0f}/t — in the model only 2040 "
+    f"residual is neutralized at ${inputs.carbon_price:,.0f}/t — in the model only 2040 "
     "closure is actually charged; the 2030 figure is what it would cost today.")
 
 st.divider()
@@ -116,7 +120,7 @@ st.markdown("**2040 — what is left after the physical levers?**")
 st.plotly_chart(viz.abatement_waterfall(p40), width="stretch", config={"displayModeBar": False})
 st.caption(
     f"Physical levers leave {p40['residual_emis']/1e6:,.2f} Mt in 2040; carbon closure "
-    f"neutralizes it at ${values['carbon_price']:,.0f}/t. Levers are attributed in a fixed "
+    f"neutralizes it at ${inputs.carbon_price:,.0f}/t. Levers are attributed in a fixed "
     f"order ({', '.join(label for _, label in LEVER_ORDER)}), since overlapping levers make "
     "attribution order-dependent.")
 
@@ -156,7 +160,7 @@ with tp:
     crossing = viz._abatement_crossover(result.pathway)
     st.caption(
         f"A tonne abated by SAF costs ${y40['saf_cost_per_tonne']:,.0f} in 2040 against "
-        f"${values['carbon_price']:,.0f} for a carbon credit — "
+        f"${inputs.carbon_price:,.0f} for a carbon credit — "
         + (f"SAF is the cheaper tonne from {crossing}."
            if crossing else
            f"offsets are cheaper by ${abs(y40['abatement_spread']):,.0f}/t in every modeled year.")

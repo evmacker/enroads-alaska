@@ -14,6 +14,7 @@ streamlit run app.py
 | | Question | Where |
 |---|---|---|
 | **2030** | Does intensity reduction vs 2019 land in Alaska's 10–14% band? | KPI grid + projection chart |
+| **vs doing nothing** | What do Alaska's own levers buy over published industry baselines? | fixed BAU line on the projection |
 | **2040 physical** | How many tonnes remain after efficiency, fleet, SAF, electrification and propulsion? | abatement waterfall |
 | **2040 financial** | What do SAF and offsets cost, as dollars and as a share of revenue? | KPI grid |
 

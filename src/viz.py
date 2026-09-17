@@ -31,8 +31,12 @@ def _frame(fig, height, xtitle=None, ytitle=None, legend=False):
     return fig
 
 
-def intensity_projection(pathway, outcome, target_year=2030):
-    """Intensity reduction vs 2019 across the pathway, with the 2030 target band shaded."""
+def intensity_projection(pathway, outcome, bau=None, target_year=2030):
+    """Intensity reduction vs 2019 across the pathway, with the 2030 target band shaded.
+
+    `bau` is a fixed business-as-usual reference that ignores the scenario controls, so
+    the gap between the two lines is what Alaska's own levers are actually buying.
+    """
     low, high = outcome["band"]
     colour = STATE_COLOR[outcome["state"]]
     reduction = outcome["reduction"]
@@ -40,10 +44,21 @@ def intensity_projection(pathway, outcome, target_year=2030):
     fig.add_hrect(y0=low, y1=high, fillcolor=BAND, opacity=1, line_width=0, layer="below",
                   annotation_text="2030 target band 10-14%", annotation_position="top left",
                   annotation_font=dict(color=MUTED, size=11))
+    if bau is not None:
+        ref = bau["pathway"]
+        fig.add_trace(go.Scatter(
+            x=ref.year, y=ref.reduction_vs_2019, mode="lines",
+            name="Business as usual (published baselines only)",
+            line=dict(color=MUTED, width=1.5, dash="dash"),
+            hovertemplate="%{x}: %{y:.1%} below 2019<extra>Business as usual</extra>"))
+        end = ref.iloc[-1]
+        fig.add_annotation(x=end.year, y=end.reduction_vs_2019, text="business as usual",
+                           showarrow=False, xanchor="right", yshift=-14,
+                           font=dict(color=MUTED, size=11))
     fig.add_trace(go.Scatter(
-        x=pathway.year, y=pathway.reduction_vs_2019, mode="lines", name="Modeled reduction",
+        x=pathway.year, y=pathway.reduction_vs_2019, mode="lines", name="Modeled scenario",
         line=dict(color=SERIES["blue"], width=2),
-        hovertemplate="%{x}: %{y:.1%} below 2019<extra></extra>"))
+        hovertemplate="%{x}: %{y:.1%} below 2019<extra>Modeled</extra>"))
     fig.add_trace(go.Scatter(
         x=[target_year], y=[reduction], mode="markers", name=f"{target_year} outcome",
         marker=dict(color=colour, size=12, line=dict(color=SURFACE, width=2)),
@@ -51,7 +66,7 @@ def intensity_projection(pathway, outcome, target_year=2030):
     fig.add_annotation(x=target_year, y=reduction, text=f"<b>{reduction:.1%}</b>", showarrow=False,
                        yshift=20, font=dict(color=INK, size=14))
     fig.update_yaxes(tickformat=".0%", rangemode="tozero")
-    return _frame(fig, 330, ytitle="Intensity reduction vs 2019")
+    return _frame(fig, 330, ytitle="Intensity reduction vs 2019", legend=bau is not None)
 
 
 def abatement_waterfall(physical):

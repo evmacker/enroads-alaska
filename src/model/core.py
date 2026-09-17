@@ -205,6 +205,28 @@ def run_scenario(inputs: ScenarioInputs, data: dict) -> ScenarioResult:
     return ScenarioResult(pathway, outcome_2030, physical_2040, financial_2040, milestones, diagnostics)
 
 
+@lru_cache(maxsize=1)
+def bau_reference():
+    """Business as usual: published baselines only, none of Alaska's own levers.
+
+    FAA activity and EIA efficiency run as published; SAF holds flat at its 2025 share;
+    fleet renewal, propulsion, ground electrification and catalytic capital are all off.
+    It is computed from a fixed input set rather than the user's, so the line never moves
+    - that is the whole point of drawing it. The price and supply inputs it inherits from
+    the config defaults provably cannot touch intensity, which a test pins.
+    """
+    data = load_data()
+    inputs = dataclasses.replace(
+        default_inputs(data),
+        saf_share_2030=data["base_saf_share"], saf_share_2040=data["base_saf_share"],
+        fleet_renewal=0.0, ground_elec=0.0, novel_propulsion=0.0, catalytic_pct=0.0,
+        activity_adj=0.0, efficiency_adj=0.0)
+    pathway = run_scenario(inputs, data).pathway[["year", "reduction_vs_2019", "residual_emis"]]
+    indexed = pathway.set_index("year")["reduction_vs_2019"]
+    return dict(pathway=pathway, reduction_2030=float(indexed.loc[TARGET_YEAR]),
+                reduction_2040=float(indexed.loc[NETZERO_YEAR]))
+
+
 def _milestone(row, band, year):
     """The same six KPI figures for any milestone year, so the UI can loop instead of branch.
 

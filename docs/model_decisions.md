@@ -51,6 +51,19 @@ Lever attribution in the waterfall runs in a fixed order (fleet renewal → nove
 propulsion → ground electrification → SAF). Overlapping levers make attribution
 order-dependent, so the order is part of the model definition, not a UI choice.
 
+**Business-as-usual reference (new).** The projection chart carries a fixed dashed line:
+FAA activity and EIA efficiency as published, SAF flat at its 2025 share, and every
+Alaska-specific lever off. It is computed from a hard-coded input set, not the user's, so
+it does not move when the controls move — a test asserts that across all fourteen
+controls. The price and supply inputs it inherits from the config defaults provably
+cannot touch intensity, which a second test pins.
+
+BAU reaches **7.98% by 2030** and **15.18% by 2040**. That is the reference line's point:
+industry efficiency alone lands *below* the 10% target floor, so the gap between the two
+lines is exactly what Alaska's own levers are buying. BAU intensity reduces to
+`2025 intensity / EIA efficiency index`, since a flat SAF share leaves the carbon-mix term
+at 1.
+
 **Offset cost is priced every year (new).** The KPI grid reports, for both 2030 and 2040,
 what it would cost to neutralize that year's residual at the planning price. Only 2040
 closure is actually *charged* in the financial model — `closure_cost` stays 2040-only

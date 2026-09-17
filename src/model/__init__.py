@@ -1,1 +1,3 @@
-from .core import load_data, default_inputs, run_scenario, ScenarioInputs  # noqa: F401
+from .core import (  # noqa: F401
+    ScenarioInputs, bau_reference, default_inputs, load_data, run_scenario,
+)

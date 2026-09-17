@@ -3,7 +3,7 @@ import dataclasses
 
 import pytest
 
-from model import load_data, default_inputs, run_scenario
+from model import bau_reference, load_data, default_inputs, run_scenario
 from model.targets import classify_2030, classify_2040_finance
 
 
@@ -281,3 +281,41 @@ def test_one_saf_step_outweighs_the_entire_ground_lever(data):
     saf_step = (scenario(data, saf_share_2040=0.60).physical_2040["residual_emis"]
                 - scenario(data, saf_share_2040=0.65).physical_2040["residual_emis"])
     assert saf_step > 20 * ground
+
+
+# --- business-as-usual reference line -----------------------------------------
+
+def test_bau_does_not_move_when_any_control_moves(data):
+    """The whole point of the reference line: it is fixed while the scenario is not."""
+    before = bau_reference()["pathway"].reduction_vs_2019.tolist()
+    for lever, value in [("saf_share_2030", 0.45), ("saf_share_2040", 0.95),
+                         ("fleet_renewal", 1.0), ("ground_elec", 1.0),
+                         ("novel_propulsion", 0.5), ("activity_adj", 0.03),
+                         ("efficiency_adj", 0.02), ("catalytic_pct", 0.05),
+                         ("saf_premium", 0.1), ("partner_share", 0.9),
+                         ("carbon_price", 500), ("saf_supply_case", "Conservative"),
+                         ("post_2035_growth", 0.0), ("removal_growth", 0.6)]:
+        scenario(data, **{lever: value})                       # move the scenario
+        assert bau_reference()["pathway"].reduction_vs_2019.tolist() == before, lever
+
+
+def test_bau_is_efficiency_only(data):
+    """BAU intensity is exactly the 2025 intensity deflated by the EIA efficiency index."""
+    pathway = bau_reference()["pathway"]
+    full = scenario(data, saf_share_2030=data["base_saf_share"],
+                    saf_share_2040=data["base_saf_share"]).pathway.set_index("year")
+    for year in (2030, 2040):
+        expected = 1 - (data["intensity_2025"] / full.loc[year, "efficiency_index"]) / data["intensity_2019"]
+        actual = pathway.set_index("year").loc[year, "reduction_vs_2019"]
+        assert actual == pytest.approx(expected, rel=1e-12)
+
+
+def test_bau_falls_short_of_the_2030_floor(data):
+    """Documents the reference line's point: industry efficiency alone misses the target."""
+    bau = bau_reference()
+    assert bau["reduction_2030"] == pytest.approx(0.0798, abs=5e-4)
+    assert bau["reduction_2030"] < 0.10
+
+
+def test_scenario_beats_bau_at_default_settings(data):
+    assert scenario(data).outcome_2030["reduction"] > bau_reference()["reduction_2030"]

@@ -10,7 +10,7 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 import viz  # noqa: E402
-from model import ScenarioInputs, load_data, run_scenario  # noqa: E402
+from model import ScenarioInputs, bau_reference, load_data, run_scenario  # noqa: E402
 from model.core import LEVER_ORDER  # noqa: E402
 
 st.set_page_config(page_title="Alaska Airlines decarbonization", page_icon="✈️", layout="wide")
@@ -95,10 +95,16 @@ for column, year in ((left, 2030), (right, 2040)):
         milestone_tiles(result.milestones[year], values["carbon_price"])
 
 st.markdown("")
-st.plotly_chart(viz.intensity_projection(result.pathway, o30), width="stretch",
+BAU = bau_reference()
+st.plotly_chart(viz.intensity_projection(result.pathway, o30, BAU), width="stretch",
                 config={"displayModeBar": False})
 need = o30["required_saf_share"]
 st.caption(
+    f"Business as usual — FAA activity and EIA efficiency as published, SAF flat at its "
+    f"2025 share, no fleet, propulsion, ground or catalytic levers — reaches "
+    f"{BAU['reduction_2030']:.1%} by 2030 and {BAU['reduction_2040']:.1%} by 2040, so "
+    f"industry efficiency alone lands below the 10% floor. The gap to the blue line is "
+    f"what Alaska's own levers buy. "
     f"2030 effective SAF share {o30['effective_saf_share']:.1%} "
     f"({o30['market_capture']:.1%} of modeled US supply). Hitting 10% needs "
     f"{need['10%']:.1%} SAF, 14% needs {need['14%']:.1%}. Offset cost assumes the full "

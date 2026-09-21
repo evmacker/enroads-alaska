@@ -111,6 +111,11 @@ def run_scenario(inputs: ScenarioInputs, data: dict) -> ScenarioResult:
 
     # Catalytic capital matures into incremental US SAF capacity after a lag.
     invest, matured, extra_capacity = saf.catalytic_capacity(years, revenue, inputs.catalytic_pct, a)
+    # Premium buy-down tracks money deployed to date, so it lags the spending naturally.
+    cumulative_invest, running = {}, 0.0
+    for y in years:
+        running += invest[y]
+        cumulative_invest[y] = running
 
     for r in rows:
         y = r["year"]
@@ -133,7 +138,8 @@ def run_scenario(inputs: ScenarioInputs, data: dict) -> ScenarioResult:
         # Two prices moving apart: catalytic capital walks the SAF premium down, while the
         # carbon price escalates as cheap credits are exhausted. Both are inert at their
         # defaults (no investment, no escalation), so the workbook path is unchanged.
-        r["learning_factor"] = saf.learning_factor(y, inputs.catalytic_pct, a, BASE_YEAR)
+        r["cumulative_catalytic"] = cumulative_invest[y]
+        r["learning_factor"] = saf.learning_factor(cumulative_invest[y], a)
         premium = inputs.saf_premium * r["learning_factor"]
         carbon_price = finance.carbon_price_path(y, inputs.carbon_price,
                                                  inputs.carbon_escalation, BASE_YEAR)
@@ -164,6 +170,10 @@ def run_scenario(inputs: ScenarioInputs, data: dict) -> ScenarioResult:
         r.update(finance.headroom(r["revenue"], inputs.investable_pct,
                                   r["physical_decarb_spend"], r["closure_cost"]))
         r["saf_cost_share_revenue"] = r["net_saf_premium"] / r["revenue"]
+        # What this year actually costs: premium borne, capital deployed, residual bought.
+        r["annual_cost"] = (r["net_saf_premium"] + r["catalytic_investment"]
+                            + r["offset_cost"])
+        r["annual_cost_share_revenue"] = r["annual_cost"] / r["revenue"]
 
     pathway = pd.DataFrame(rows)
     y30, y40 = (pathway.set_index("year").loc[y].to_dict() for y in (TARGET_YEAR, NETZERO_YEAR))
@@ -238,11 +248,12 @@ def bau_reference():
                 reduction_2040=float(indexed.loc[NETZERO_YEAR]))
 
 
-REFERENCE_ORDER = ("bau", "conservative", "all_in")
+PRESET_ORDER = ("conservative", "all_in")
+SCENARIO_ORDER = ("conservative", "all_in", "custom")
 
 
 def _conservative_saf_ramp(data):
-    """Meet the 2030 floor on SAF alone, then hold that same ramp rate out to 2040.
+    """Just enough SAF to reach the 2030 floor, then that same ramp rate out to 2040.
 
     The 2030 share is solved by the model's own required-share calculation against the
     published band floor, so the share itself is derived rather than chosen. The only
@@ -257,31 +268,28 @@ def _conservative_saf_ramp(data):
                 saf_share_2040=s2030 + slope * (NETZERO_YEAR - TARGET_YEAR))
 
 
-@lru_cache(maxsize=1)
-def reference_pathways():
-    """The three fixed pathways the projection chart draws against the live scenario.
+def preset_inputs(name, data):
+    """The fixed input set behind one named strategy."""
+    overrides = dict(data["config"]["references"][name].get("overrides") or {})
+    if name == "conservative":
+        overrides.update(_conservative_saf_ramp(data))
+    return dataclasses.replace(default_inputs(data), **overrides)
 
-    Each is computed from a fixed input set rather than the user's, so none of these
-    lines move when a slider moves - that is what makes them references rather than
-    scenarios. What they assert lives in config/assumptions.yaml, not in chart code.
+
+@lru_cache(maxsize=1)
+def preset_scenarios():
+    """Full results for the two fixed strategies the toggle offers.
+
+    'custom' is deliberately absent: it is whatever the sidebar currently says, so the
+    app builds that one itself. These two never move when a slider moves.
     """
     data = load_data()
     specs = data["config"]["references"]
     out = {}
-    for name in REFERENCE_ORDER:
-        spec = specs[name]
-        if name == "bau":
-            pathway = bau_reference()["pathway"]
-        else:
-            overrides = dict(spec.get("overrides") or {})
-            if name == "conservative":
-                overrides.update(_conservative_saf_ramp(data))
-            result = run_scenario(dataclasses.replace(default_inputs(data), **overrides), data)
-            pathway = result.pathway[["year", "reduction_vs_2019", "residual_emis"]]
-        indexed = pathway.set_index("year")["reduction_vs_2019"]
-        out[name] = dict(key=name, label=spec["label"], note=spec["note"], pathway=pathway,
-                         reduction_2030=float(indexed.loc[TARGET_YEAR]),
-                         reduction_2040=float(indexed.loc[NETZERO_YEAR]))
+    for name in PRESET_ORDER:
+        inputs = preset_inputs(name, data)
+        out[name] = dict(key=name, label=specs[name]["label"], note=specs[name]["note"],
+                         inputs=inputs, result=run_scenario(inputs, data))
     return out
 
 
@@ -297,7 +305,7 @@ def _milestone(row, band, year):
         year=year, reduction=row["reduction_vs_2019"], intensity=row["intensity"],
         residual_emis=row["residual_emis"], revenue=row["revenue"],
         saf_cost=row["net_saf_premium"], saf_share_revenue=row["saf_cost_share_revenue"],
-        carbon_price=row["carbon_price"],
+        carbon_price=row["carbon_price"], annual_cost=row["annual_cost"],
         offset_cost=row["offset_cost"], offset_share_revenue=row["offset_share_revenue"],
         effective_saf_share=row["effective_saf_share"], **verdict)
 

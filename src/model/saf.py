@@ -31,22 +31,22 @@ def catalytic_capacity(years, revenue, catalytic_pct, a):
     return invest, matured, capacity
 
 
-def learning_factor(year, catalytic_pct, a, base_year):
-    """Compounding price decline bought by sustained catalytic investment.
+def learning_factor(cumulative_investment, a):
+    """SAF premium multiplier bought by cumulative catalytic venture capital.
 
-    The workbook has no such mechanism: this is an explicit assumption that early
-    money buys cheaper SAF later, so investing before it pays off still pays off by
-    2040. It starts after the same maturation lag the capacity effect uses, and
-    compounds once per year thereafter.
+        SAF premium(t) = market premium(t) x (1 - r) ** (cumulative CVC(t) / tranche)
 
-    It moves the SAF premium only. Alaska funding SAF capacity is not a reason for the
-    global carbon credit price to fall, and discounting both by the same factor would
-    leave their ratio fixed - which can never change which tonne is cheaper.
+    NEW, not in the workbook. The exponent is money deployed, not years elapsed, so the
+    discount is negligible early and compounds as spend accumulates - which is what makes
+    catalytic capital a short-term cost and a long-term saving rather than a free lunch.
 
-    Returns exactly 1.0 when nothing is invested, which is what keeps workbook parity.
+    It moves the SAF premium only. Alaska funding SAF capacity is no reason for the global
+    carbon credit price to fall, and discounting both by the same factor would leave their
+    ratio fixed - which can never change which tonne is cheaper.
+
+    Returns exactly 1.0 when nothing has been invested, which is what keeps workbook parity.
     """
-    if catalytic_pct <= 0:
+    if cumulative_investment <= 0:
         return 1.0
-    years_active = max(0, year - base_year - a["catalytic_lag_years"])
-    rate = min(1.0, catalytic_pct * a["catalytic_learning_rate"])
-    return (1 - rate) ** years_active
+    tranches = cumulative_investment / a["catalytic_reference_spend"]
+    return (1 - a["catalytic_learning_rate"]) ** tranches

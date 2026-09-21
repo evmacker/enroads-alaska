@@ -178,20 +178,26 @@ result.
 ### Two new price mechanisms (NEW, not in the workbook)
 
 The workbook has one flat carbon price and no link between investment and cost. Two
-mechanisms were added so that "invest early, save later" is expressible at all. Both are
-inert at their defaults, which is what keeps `tests/test_parity.py` passing.
+mechanisms were added so "invest early, save later" is expressible at all. Both are inert
+at their defaults, which is what keeps `tests/test_parity.py` passing.
 
 | Mechanism | Where | Effect |
 |---|---|---|
-| Catalytic learning curve | `saf.learning_factor()`, anchor `catalytic_learning_rate: 1.0` | After the existing 3-year maturation lag, the SAF premium falls by `catalytic_pct × learning_rate` per year, compounding. At 2% of revenue that is 2%/yr. Returns exactly 1.0 when nothing is invested |
-| Carbon price escalation | `finance.carbon_price_path()`, input `carbon_escalation` | The planning price grows in real terms as the cheapest credits are exhausted. Default 0% reproduces the workbook's single flat price |
+| Catalytic buy-down | `saf.learning_factor()` | `SAF premium(t) = market premium(t) × (1 − r) ^ (cumulative CVC(t) / tranche)`, with `r` = 1% per $50M tranche deployed. Returns exactly 1.0 when nothing is invested |
+| Carbon escalation | `finance.carbon_price_path()`, input `carbon_escalation` | The planning price grows in real terms as the cheapest credits are exhausted. Default 0% reproduces the workbook's single flat price |
 
-**The learning curve moves the SAF premium only, and this is load-bearing.** Discounting
-the carbon price by the same factor — the first thing tried — leaves the ratio between
-the two prices fixed at 1.622 no matter how much is invested, so it can scale total cost
-down but can *never* change which tonne is cheaper. It is also not causally credible:
-Alaska funding SAF capacity is no reason for the global credit price to fall. The two
-prices therefore move for different reasons and in opposite directions.
+**The exponent is money deployed, not years elapsed.** That is the point: the discount is
+negligible while little has been spent and compounds as capital accumulates, so catalytic
+capital is a real short-term cost buying a real long-term saving rather than a free lunch
+that arrives on a timer. It scales exactly — doubling `catalytic_pct` doubles cumulative
+spend and therefore squares the discount, which a test pins.
+
+**It moves the SAF premium only, and this is load-bearing.** Discounting the carbon price
+by the same factor — the first thing tried — leaves the ratio between the two prices fixed
+at 1.622 no matter how much is invested, so it can scale total cost down but can *never*
+change which tonne is cheaper. It is also not causally credible: Alaska funding SAF
+capacity is no reason for the global credit price to fall. The two prices move for
+different reasons, in opposite directions.
 
 ### The seven All-In assumptions
 
@@ -200,17 +206,16 @@ prices therefore move for different reasons and in opposite directions.
 | `saf_share_2030` | 15% | 10% | Aggressive, still inside modeled US supply |
 | `saf_share_2040` | 90% | 60% | Near-complete liquid-fuel substitution |
 | `partner_share` | 20% | 0% | Corporate and book-and-claim partnerships carry a fifth of the premium |
-| `catalytic_pct` | 2% | 0% | The early money. Abates zero tonnes directly — supply never binds here — and instead buys a 2%/yr compounding decline in the SAF premium |
+| `catalytic_pct` | 2% | 0% | The early money — $5.52B cumulative by 2040, which buys the premium down to 33% of market. Abates zero tonnes directly, since supply never binds here |
 | `fleet_renewal` | 20% | 0% | Marginal — capex unmodeled |
 | `ground_elec` | 25% | 0% | Marginal — capex unmodeled, and the lever is 0.28% of the residual regardless |
 | `novel_propulsion` | 5% | 0% | Marginal — capex unmodeled |
-| `carbon_escalation` | 3.3% | 0% | A world assumption, so **Conservative carries the identical rate**. It is the rate that lifts $200/t to SAF's own $324/t by 2040 |
+| `carbon_escalation` | 3.3% | 0% | A world assumption, so **Conservative carries the identical rate**. It is the rate that lifts $200/t to SAF's undiscounted $324/t by 2040 |
 
-`saf_premium` and `carbon_price` are deliberately *not* overridden any more. An earlier
-version set them by hand (0.50 and $100/t) as a proxy for "early investment drives prices
-down". Now that the two mechanisms above exist, asserting the endpoint as well would
-double-count the same story. All-In therefore pays for its price decline in cash and the
-model reports what that buys.
+`saf_premium` and `carbon_price` are deliberately *not* overridden. An earlier version set
+them by hand (0.50 and $100/t) as a proxy for "early investment drives prices down". Now
+that the mechanisms above exist, asserting the endpoint as well would double-count the
+same story. All-In pays for its price decline in cash and the model reports what that buys.
 
 ### What the All-In line does not claim
 - It is not a forecast, a plan, or a least-cost solution.
@@ -222,62 +227,58 @@ model reports what that buys.
 ## Does delaying cost more? Reviewing the hypothesis
 
 The hypothesis under test: **being conservative costs less to reach 2030, but more to
-reach net zero by 2040.** Conservative and All-In face the identical carbon world (3.3%
-escalation); they differ only in SAF ambition and whether they invest early.
+reach net zero by 2040.** Both strategies face the identical carbon world (3.3%
+escalation); they differ only in SAF ambition and whether they deploy catalytic capital.
 
-First, an identity that decides the whole question. Total cost to neutralise a fixed
-quantity of emissions `T`, of which `A` is abated physically, is
+First, an identity that decides the question. Total cost to neutralise a fixed quantity
+`T`, of which `A` is abated physically, is
 
 ```
 cost = T × carbon_price + A × (saf_price − carbon_price)
 ```
 
-So abating more only costs less when **SAF is the cheaper tonne**. Before the two
-mechanisms were added it never was ($324/t against $200/t), and total cost rose
-monotonically with SAF — $6.84B at 10% SAF to $18.26B at 90%. The hypothesis was not
-merely false, it was unreachable.
-
-With learning and escalation pulling the prices apart, SAF crosses below carbon before
-2040 ($255/t against $325/t) and the picture changes:
+So abating more only costs less when **SAF is the cheaper tonne**. With no buy-down it
+never is ($324/t against $200/t) and cost rises monotonically with SAF — $6.84B at 10%
+SAF to $18.26B at 90%. The hypothesis was not merely false, it was unreachable. The
+catalytic buy-down is what makes it reachable.
 
 | | Conservative | All-In |
 |---|---|---|
 | 2030 intensity reduction | 10.0% | 20.8% |
 | 2040 intensity reduction | 20.8% | 78.2% |
 | 2040 residual | 12.65 Mt | 3.52 Mt |
-| 2040 SAF price | $406/t | $255/t |
-| **Cost to 2030** (spend + offsets) | **$14.44B** | $16.05B |
-| Cumulative spend to 2040 | $3.00B | $20.40B |
-| Cumulative offsets to 2040 | $47.86B | $30.88B |
-| **Cost to 2040** (net zero every year) | **$50.86B** | $51.28B |
+| 2040 SAF price | $406/t | **$107/t** |
+| 2040 carbon price | $325/t | $325/t |
+| Annual cost 2030 | $2.72B | $2.86B |
+| Annual cost 2035 | $3.52B | $2.98B |
+| Annual cost 2040 | $4.52B | **$2.51B** |
+| **Cumulative to 2030** | **$14.44B** | $15.81B |
+| **Cumulative to 2040** | $50.86B | **$44.38B** |
 
-**The verdict: the first half holds, the second half very nearly does.** Conservative is
-$1.61B cheaper to 2030, exactly as hypothesised. By 2040 that lead has been ground down
-to $0.42B — under 1% — because All-In's cheaper tonnes progressively offset its higher
-spend. On *annual* cost in 2040 All-In is already ahead by $0.69B/yr; it simply runs out
-of horizon before repaying the head start.
+**Verdict: the hypothesis holds, in both halves.** Conservative is $1.37B cheaper to 2030,
+then loses by $6.48B — 13% — by 2040. Two crossovers matter and they are four years apart:
 
-Where it tips outright:
+- **2032** — All-In's *annual* bill drops below Conservative's and never returns.
+- **2036** — All-In's *cumulative* spend overtakes, having repaid the head start.
 
-| Carbon escalation | Catalytic 2% | Catalytic 3% |
-|---|---|---|
-| 3.3% | Conservative by $0.43B | Conservative by $2.01B |
-| 4.0% | **All-In by $0.95B** | Conservative by $0.64B |
-| 5.0% | **All-In by $3.10B** | **All-In by $1.52B** |
-| 6.0% | **All-In by $5.50B** | **All-In by $3.92B** |
+The mechanism is visible in the annual figures. All-In's yearly cost *falls* from $2.86B
+to $2.51B across the decade while Conservative's *rises* from $2.72B to $4.52B, because
+one pathway is buying down the price of the tonnes it still needs and the other is buying
+an ever-larger residual at an escalating carbon price.
 
-So the hypothesis is true for carbon escalation at or above roughly 4%/yr, and at 5% the
-cumulative crossover lands inside the horizon, in 2038. Two cautions on reading this:
+Three cautions on reading this:
 
-1. **More investment is not better.** Catalytic capital at 3% loses to 2% at every
-   escalation rate: the extra spend outruns the extra saving. The lever has an interior
-   optimum, which is worth knowing before treating it as a dial to max out.
-2. **The framing does a lot of work.** The table above neutralises every year's residual.
-   The model's own `closure_cost` column charges carbon only in 2040 (a workbook
-   convention parity depends on), which compares sixteen years of SAF premium against one
-   year of offsets and hands Conservative a $7.11B-to-$21.54B win. That framing is
-   structurally biased against acting early; it is kept for parity, not because it is the
-   right lens for this question.
+1. **More investment is not better.** Catalytic capital at 5% of revenue is worse than at
+   2%: the extra spend outruns the extra saving. The lever has an interior optimum, which
+   is worth knowing before treating it as a dial to max out.
+2. **The result is sensitive to the buy-down rate.** `r` = 1% per $50M is an assumption
+   with no empirical anchor in this repo. It drives the headline conclusion, so it is the
+   first number to attack if the conclusion matters.
+3. **The model's own `closure_cost` column tells a different story.** It charges carbon
+   only in 2040, a workbook convention parity depends on, which compares sixteen years of
+   SAF premium against one year of offsets and hands Conservative the win. The table above
+   instead neutralises every year's residual. That framing choice is doing real work and
+   is stated here rather than buried.
 
 ## Known workbook discrepancy
 The workbook's cached `Model` sheet cells for US SAF availability and market capture in

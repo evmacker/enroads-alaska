@@ -4,6 +4,7 @@ Validator: 3 categorical slots, all-pairs, light — all checks pass; aqua carri
 contrast WARN, so it is always direct-labelled and mirrored in the annual table.
 """
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 SERIES = {"blue": "#2a78d6", "orange": "#eb6834", "aqua": "#1baf7a"}
 STATUS = {"good": "#0ca30c", "warning": "#fab219", "serious": "#ec835a", "critical": "#d03b3b"}
@@ -31,12 +32,11 @@ def _frame(fig, height, xtitle=None, ytitle=None, legend=False):
     return fig
 
 
-def intensity_projection(pathway, outcome, reference=None, target_year=2030):
+def intensity_projection(pathway, outcome, bau=None, scenario_label="Custom", target_year=2030):
     """Intensity reduction vs 2019 across the pathway, with the 2030 target band shaded.
 
-    `reference` is one fixed pathway from model.reference_pathways() — business as
-    usual, conservative or all-in. It ignores the scenario controls entirely, so the
-    gap between the two lines is what Alaska's own levers are actually buying.
+    The selected strategy is always the blue line. Business as usual sits behind it in
+    grey dashes and never moves, so the gap between them is what the strategy buys.
     """
     low, high = outcome["band"]
     colour = STATE_COLOR[outcome["state"]]
@@ -45,8 +45,8 @@ def intensity_projection(pathway, outcome, reference=None, target_year=2030):
     fig.add_hrect(y0=low, y1=high, fillcolor=BAND, opacity=1, line_width=0, layer="below",
                   annotation_text="2030 target band 10-14%", annotation_position="top left",
                   annotation_font=dict(color=MUTED, size=11))
-    if reference is not None:
-        ref, label = reference["pathway"], reference["label"]
+    if bau is not None:
+        ref, label = bau["pathway"], "Business as usual"
         fig.add_trace(go.Scatter(
             x=ref.year, y=ref.reduction_vs_2019, mode="lines", name=label,
             line=dict(color=MUTED, width=1.5, dash="dash"),
@@ -58,9 +58,9 @@ def intensity_projection(pathway, outcome, reference=None, target_year=2030):
                            showarrow=False, xanchor="right", yshift=14 if above else -14,
                            font=dict(color=MUTED, size=11))
     fig.add_trace(go.Scatter(
-        x=pathway.year, y=pathway.reduction_vs_2019, mode="lines", name="Modeled scenario",
+        x=pathway.year, y=pathway.reduction_vs_2019, mode="lines", name=scenario_label,
         line=dict(color=SERIES["blue"], width=2),
-        hovertemplate="%{x}: %{y:.1%} below 2019<extra>Modeled</extra>"))
+        hovertemplate="%{x}: %{y:.1%} below 2019<extra>" + scenario_label + "</extra>"))
     fig.add_trace(go.Scatter(
         x=[target_year], y=[reduction], mode="markers", name=f"{target_year} outcome",
         marker=dict(color=colour, size=12, line=dict(color=SURFACE, width=2)),
@@ -68,7 +68,7 @@ def intensity_projection(pathway, outcome, reference=None, target_year=2030):
     fig.add_annotation(x=target_year, y=reduction, text=f"<b>{reduction:.1%}</b>", showarrow=False,
                        yshift=20, font=dict(color=INK, size=14))
     fig.update_yaxes(tickformat=".0%", rangemode="tozero")
-    return _frame(fig, 330, ytitle="Intensity reduction vs 2019", legend=reference is not None)
+    return _frame(fig, 330, ytitle="Intensity reduction vs 2019", legend=bau is not None)
 
 
 def abatement_waterfall(physical):
@@ -229,3 +229,32 @@ def _abatement_crossover(pathway):
     """First year a tonne abated by SAF costs no more than a tonne of offsets."""
     cheaper = pathway[pathway.abatement_spread <= 0]
     return int(cheaper.year.iloc[0]) if len(cheaper) else None
+
+
+def offset_and_cost(pathway, scenario_label="Custom"):
+    """Tonnes still needing offset against what the pathway costs, year by year.
+
+    Two different questions share one x-axis on purpose: the physical job left to do,
+    and the annual bill for doing it. Cost is per year, never cumulative — the left
+    axis is a stock of emissions, the right one a yearly flow of money.
+    """
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    fig.add_trace(go.Scatter(
+        x=pathway.year, y=pathway.residual_emis / MT, name="Needing offset", mode="lines",
+        line=dict(color=SERIES["blue"], width=2), fill="tozeroy",
+        fillcolor="rgba(42,120,214,0.10)",
+        hovertemplate="%{x}: %{y:.2f} Mt to offset<extra>" + scenario_label + "</extra>"),
+        secondary_y=False)
+    fig.add_trace(go.Scatter(
+        x=pathway.year, y=pathway.annual_cost / BN, name="Annual cost", mode="lines",
+        line=dict(color=SERIES["orange"], width=2, dash="dot"),
+        hovertemplate="%{x}: $%{y:.2f}B that year<extra>" + scenario_label + "</extra>"),
+        secondary_y=True)
+    fig = _frame(fig, 330, legend=True)
+    fig.update_yaxes(title_text="MtCO2e needing offset", secondary_y=False,
+                     rangemode="tozero", tickformat=".1f",
+                     title_font=dict(color=MUTED, size=12))
+    fig.update_yaxes(title_text="Annual cost", secondary_y=True, rangemode="tozero",
+                     tickprefix="$", ticksuffix="B", tickformat=".1f", showgrid=False,
+                     title_font=dict(color=MUTED, size=12), tickfont=dict(color=MUTED))
+    return fig

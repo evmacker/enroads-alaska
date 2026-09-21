@@ -16,7 +16,7 @@ def run(overrides=None):
         # AppTest cannot re-read a single-select button group: its `indices` property
         # iterates the widget value, which comes back as a bare string after a run. Only
         # the harness is affected, not the app, so restate the default before rerunning.
-        at.button_group[0].set_value(["bau"])
+        at.button_group[0].set_value(["custom"])
         at.run()
         assert not at.exception, at.exception
     return at
@@ -66,34 +66,56 @@ def test_extreme_slider_positions_do_not_break_the_app(index, value):
     run({index: value})
 
 
-def _reference_caption(at):
-    return [c.value for c in at.caption if "by 2030 and" in c.value][0]
+def _strategy_caption(at):
+    """The one caption that names the selected strategy and quotes its note."""
+    return [c.value for c in at.caption if c.value.startswith("**")][0]
 
 
-def test_reference_toggle_switches_the_comparison_line():
-    """Each of the three buttons redraws the chart against a different fixed pathway."""
+def test_strategy_toggle_switches_the_blue_line():
+    """Each button swaps the whole page — tiles, both charts and captions — to a strategy."""
     at = run()
     seen = {}
-    for key in ("bau", "conservative", "all_in"):
+    for key in ("conservative", "all_in", "custom"):
         at.button_group[0].set_value([key])        # re-fetch the node on every pass
         at.run()
         assert not at.exception, at.exception
-        seen[key] = _reference_caption(at)
-    assert "Business as usual" in seen["bau"]
+        seen[key] = _strategy_caption(at)
     assert "Conservative" in seen["conservative"]
     assert "All-In" in seen["all_in"]
+    assert "Custom" in seen["custom"]
     assert len(set(seen.values())) == 3
 
 
-def test_toggle_defaults_to_business_as_usual():
-    """Opening the page must look exactly like it did before the toggle existed."""
-    assert "Business as usual" in _reference_caption(run())
-
-
-def test_chart_reveal_is_keyed_to_the_selected_reference():
-    """The keyframe name carries the reference key — that is what replays the sweep."""
+def test_presets_say_the_sidebar_does_not_drive_them():
     at = run()
-    assert "unfurl-bau" in " ".join(m.value for m in at.markdown if "@keyframes" in m.value)
+    at.button_group[0].set_value(["all_in"])
+    at.run()
+    assert "sidebar drives Custom only" in _strategy_caption(at)
+    at.button_group[0].set_value(["custom"])
+    at.run()
+    assert "sidebar drives Custom only" not in _strategy_caption(at)
+
+
+def test_toggle_defaults_to_custom():
+    """Opening the page must still land on the workbook defaults the sidebar shows."""
+    assert "Custom" in _strategy_caption(run())
+
+
+def test_switching_strategy_changes_the_kpi_tiles():
+    """The figures under each milestone year follow the toggle, not the sliders."""
+    at = run()
+    at.button_group[0].set_value(["conservative"])
+    at.run()
+    cons = " ".join(m.value for m in at.markdown)
+    at.button_group[0].set_value(["all_in"])
+    at.run()
+    assert cons != " ".join(m.value for m in at.markdown)
+
+
+def test_chart_reveal_is_keyed_to_the_selected_strategy():
+    """The keyframe name carries the strategy key — that is what replays the sweep."""
+    at = run()
+    assert "unfurl-custom" in " ".join(m.value for m in at.markdown if "@keyframes" in m.value)
     at.button_group[0].set_value(["all_in"])
     at.run()
     assert "unfurl-all_in" in " ".join(m.value for m in at.markdown if "@keyframes" in m.value)

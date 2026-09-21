@@ -11,13 +11,15 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 import viz  # noqa: E402
-from model import default_inputs, load_data, reference_pathways, run_scenario  # noqa: E402
-from model.core import LEVER_ORDER  # noqa: E402
+from model import (bau_reference, default_inputs, load_data, preset_scenarios,  # noqa: E402
+                   run_scenario)
+from model.core import LEVER_ORDER, SCENARIO_ORDER  # noqa: E402
 
 st.set_page_config(page_title="Alaska Airlines decarbonization", page_icon="✈️", layout="wide")
 DATA = load_data()
 SPEC = DATA["config"]["inputs"]
 GROUPS = ["SAF", "Operations", "Money", "Baselines"]
+REFS = DATA["config"]["references"]
 
 
 def control(key):
@@ -82,14 +84,28 @@ with st.sidebar:
                 values[key] = control(key)
     st.caption("Defaults reproduce the source workbook. Model runs 2025→2040.")
 
-inputs = dataclasses.replace(default_inputs(DATA), **values)
-result = run_scenario(inputs, DATA)
-o30, p40, f40 = result.outcome_2030, result.physical_2040, result.financial_2040
+custom_inputs = dataclasses.replace(default_inputs(DATA), **values)
+SCENARIOS = {**preset_scenarios(),
+             "custom": dict(key="custom", label=REFS["custom"]["label"],
+                            note=REFS["custom"]["note"], inputs=custom_inputs,
+                            result=run_scenario(custom_inputs, DATA))}
 
 # ---- headline ---------------------------------------------------------------
 st.markdown("#### Alaska Airlines decarbonization pathway")
-st.caption("A stripped-down En-ROADS for one airline: move the levers, see whether the "
-           "2030 intensity target lands and whether 2040 net zero is affordable.")
+st.caption("A stripped-down En-ROADS for one airline: pick a strategy, see whether the "
+           "2030 intensity target lands and what the 2040 bill looks like.")
+
+picker, _ = st.columns([2, 3])
+with picker:
+    choice = st.segmented_control("Strategy", options=list(SCENARIO_ORDER), default="custom",
+                                  format_func=lambda k: SCENARIOS[k]["label"], key="scenario")
+scn = SCENARIOS[choice or "custom"]     # segmented_control returns None when deselected
+inputs, result = scn["inputs"], scn["result"]
+o30, p40, f40 = result.outcome_2030, result.physical_2040, result.financial_2040
+
+st.caption(f"**{scn['label']}** — {scn['note']}"
+           + ("" if scn["key"] == "custom" else
+              "  *The sidebar drives Custom only; this strategy is fixed.*"))
 
 left, right = st.columns(2, gap="medium")
 for column, year in ((left, 2030), (right, 2040)):
@@ -99,30 +115,37 @@ for column, year in ((left, 2030), (right, 2040)):
         milestone_tiles(result.milestones[year])
 
 st.markdown("")
-REFS = reference_pathways()
-picker, _ = st.columns([2, 3])
-with picker:
-    choice = st.segmented_control("Compare against", options=list(REFS), default="bau",
-                                  format_func=lambda k: REFS[k]["label"], key="reference")
-ref = REFS[choice or "bau"]          # segmented_control returns None when deselected
+BAU = bau_reference()
 
-# Gentle left-to-right reveal. The keyframe name carries the reference key, so choosing a
-# different line changes animation-name and the browser replays the sweep. fill-mode stays
-# at its default, so the clip is gone once it lands and never interferes with hover.
+# Gentle left-to-right reveal. The keyframe name carries the strategy key, so switching
+# strategy changes animation-name and the browser replays the sweep. fill-mode stays at
+# its default, so the clip is gone once it lands and never interferes with hover.
 st.markdown(
-    f"<style>@keyframes unfurl-{ref['key']}{{from{{clip-path:inset(0 100% 0 0)}}"
+    f"<style>@keyframes unfurl-{scn['key']}{{from{{clip-path:inset(0 100% 0 0)}}"
     f"to{{clip-path:inset(0 0 0 0)}}}}"
-    f".st-key-projection [data-testid='stPlotlyChart']"
-    f"{{animation:unfurl-{ref['key']} 900ms ease-out}}</style>", unsafe_allow_html=True)
-with st.container(key="projection"):
-    st.plotly_chart(viz.intensity_projection(result.pathway, o30, ref), width="stretch",
-                    config={"displayModeBar": False})
+    f".st-key-projection [data-testid='stPlotlyChart'],"
+    f".st-key-cost [data-testid='stPlotlyChart']"
+    f"{{animation:unfurl-{scn['key']} 900ms ease-out}}</style>", unsafe_allow_html=True)
+
+chart_left, chart_right = st.columns(2, gap="medium")
+with chart_left:
+    with st.container(key="projection"):
+        st.plotly_chart(viz.intensity_projection(result.pathway, o30, BAU, scn["label"]),
+                        width="stretch", config={"displayModeBar": False})
+with chart_right:
+    with st.container(key="cost"):
+        st.plotly_chart(viz.offset_and_cost(result.pathway, scn["label"]),
+                        width="stretch", config={"displayModeBar": False})
 
 need = o30["required_saf_share"]
+y30, y40 = (result.pathway.set_index("year").loc[y] for y in (2030, 2040))
 st.caption(
-    f"**{ref['label']}** — {ref['note']} It reaches {ref['reduction_2030']:.1%} by 2030 and "
-    f"{ref['reduction_2040']:.1%} by 2040; the gap to the blue line is what your own sidebar "
-    f"levers buy on top of it. "
+    f"Left: intensity reduction vs 2019, against a business-as-usual line that never moves "
+    f"({BAU['reduction_2030']:.1%} by 2030, {BAU['reduction_2040']:.1%} by 2040). "
+    f"Right: tonnes still needing offset against what each year costs — premium borne plus "
+    f"capital deployed plus residual bought — "
+    f"${y30['annual_cost']/1e9:,.2f}B in 2030 rising to ${y40['annual_cost']/1e9:,.2f}B in "
+    f"2040, never cumulative. "
     f"2030 effective SAF share {o30['effective_saf_share']:.1%} "
     f"({o30['market_capture']:.1%} of modeled US supply). Hitting 10% needs "
     f"{need['10%']:.1%} SAF, 14% needs {need['14%']:.1%}. Offset cost assumes the full "

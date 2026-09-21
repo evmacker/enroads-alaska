@@ -3,8 +3,8 @@ import dataclasses
 
 import pytest
 
-from model import (bau_reference, load_data, default_inputs, reference_pathways,
-                   run_scenario)
+from model import (bau_reference, load_data, default_inputs, preset_inputs,
+                   preset_scenarios, run_scenario)
 from model.targets import classify_2030, classify_2040_finance
 
 
@@ -242,13 +242,22 @@ def test_price_levers_scale_saf_cost_per_tonne(data, lever, value, factor):
 
 
 def test_catalytic_capital_walks_the_saf_price_down(data):
-    """The learning curve: sustained investment makes every later tonne of SAF cheaper."""
+    """The learning curve deepens with money deployed, so it compounds over the horizon."""
     off = scenario(data, catalytic_pct=0.0).pathway.set_index("year")
     on = scenario(data, catalytic_pct=0.02).pathway.set_index("year")
-    assert on.loc[2025, "saf_cost_per_tonne"] == pytest.approx(off.loc[2025, "saf_cost_per_tonne"])
-    assert on.loc[2027, "saf_cost_per_tonne"] == pytest.approx(off.loc[2027, "saf_cost_per_tonne"])
-    assert on.loc[2030, "saf_cost_per_tonne"] < off.loc[2030, "saf_cost_per_tonne"]
-    assert on.loc[2040, "saf_cost_per_tonne"] < on.loc[2030, "saf_cost_per_tonne"]
+    assert (off["learning_factor"] == 1.0).all()               # inert when nothing is spent
+    assert on["learning_factor"].is_monotonic_decreasing
+    assert on.loc[2040, "saf_cost_per_tonne"] < 0.5 * off.loc[2040, "saf_cost_per_tonne"]
+
+
+def test_the_learning_exponent_is_spend_not_time(data):
+    """Doubling the rate doubles cumulative spend, which squares the discount exactly."""
+    on = scenario(data, catalytic_pct=0.02).pathway.set_index("year")
+    faster = scenario(data, catalytic_pct=0.04).pathway.set_index("year")
+    assert faster.loc[2040, "cumulative_catalytic"] == pytest.approx(
+        2 * on.loc[2040, "cumulative_catalytic"], rel=1e-12)
+    assert faster.loc[2040, "learning_factor"] == pytest.approx(
+        on.loc[2040, "learning_factor"] ** 2, rel=1e-9)
 
 
 def test_carbon_price_escalates_only_when_asked(data):
@@ -357,48 +366,44 @@ def test_scenario_beats_bau_at_default_settings(data):
 # "Being conservative costs less to reach 2030, but more to reach net zero by 2040."
 # These pin the answer docs/model_decisions.md reports, so the prose cannot drift.
 
-def _cumulative_cost(data, overrides, through=2040):
-    """Physical spend plus the cost of neutralising every year's residual."""
-    p = scenario(data, **overrides).pathway.set_index("year").loc[:through]
-    return p[["net_saf_premium", "catalytic_investment", "offset_cost"]].to_numpy().sum()
-
-
-def _both_strategies(data, **world):
-    from model.core import _conservative_saf_ramp
-    refs = data["config"]["references"]
-    cons = {**refs["conservative"]["overrides"], **_conservative_saf_ramp(data), **world}
-    allin = {**refs["all_in"]["overrides"], **world}
-    return cons, allin
+def _annual(data, name, **world):
+    import dataclasses as dc
+    return run_scenario(dc.replace(preset_inputs(name, data), **world), data) \
+        .pathway.set_index("year")["annual_cost"]
 
 
 def test_conservative_is_cheaper_to_reach_2030(data):
     """First half of the hypothesis: delay genuinely is cheaper in the short run."""
-    cons, allin = _both_strategies(data)
-    assert _cumulative_cost(data, cons, 2030) < _cumulative_cost(data, allin, 2030)
+    assert _annual(data, "conservative").loc[:2030].sum() < \
+           _annual(data, "all_in").loc[:2030].sum()
 
 
-def test_the_2040_gap_all_but_closes_at_the_reference_carbon_world(data):
-    """Second half: All-In nearly catches up by 2040, but does not quite overtake."""
-    cons, allin = _both_strategies(data)
-    c, a = _cumulative_cost(data, cons), _cumulative_cost(data, allin)
-    assert a > c                                  # conservative still ahead...
-    assert (a - c) / c < 0.01                     # ...by under 1%
+def test_all_in_is_cheaper_by_2040(data):
+    """Second half: the early spend repays, and with room to spare."""
+    cons, allin = _annual(data, "conservative"), _annual(data, "all_in")
+    assert allin.sum() < cons.sum()
+    assert (cons.sum() - allin.sum()) / cons.sum() > 0.10      # by more than 10%
 
 
-def test_all_in_wins_outright_once_carbon_escalates_faster(data):
-    """Where the hypothesis becomes true: escalation at or above ~4%/yr."""
-    for rate, all_in_wins in ((0.033, False), (0.04, True), (0.05, True)):
-        cons, allin = _both_strategies(data, carbon_escalation=rate)
-        wins = bool(_cumulative_cost(data, allin) < _cumulative_cost(data, cons))
-        assert wins is all_in_wins, rate
+def test_all_in_annual_cost_falls_while_conservative_rises(data):
+    """The mechanism behind the flip: one pathway's bill shrinks, the other's grows."""
+    cons, allin = _annual(data, "conservative"), _annual(data, "all_in")
+    assert allin.loc[2040] < allin.loc[2030]
+    assert cons.loc[2040] > cons.loc[2030]
+
+
+def test_annual_crossover_precedes_the_cumulative_one(data):
+    """All-In gets cheaper per year well before it has repaid its head start."""
+    cons, allin = _annual(data, "conservative"), _annual(data, "all_in")
+    annual = next(y for y, d in (allin - cons).items() if d < 0)
+    cumulative = next(y for y, d in (allin.cumsum() - cons.cumsum()).items() if d < 0)
+    assert annual < cumulative <= 2040
 
 
 def test_more_catalytic_capital_is_not_always_better(data):
-    """The lever has an interior optimum: 3% of revenue loses to 2% at every rate."""
-    for rate in (0.033, 0.05):
-        _, allin = _both_strategies(data, carbon_escalation=rate)
-        assert _cumulative_cost(data, {**allin, "catalytic_pct": 0.03}) > \
-               _cumulative_cost(data, {**allin, "catalytic_pct": 0.02})
+    """The lever has an interior optimum — beyond it the spend outruns the saving."""
+    best = _annual(data, "all_in").sum()
+    assert _annual(data, "all_in", catalytic_pct=0.05).sum() > best
 
 
 # --- the three reference pathways on the projection toggle --------------------
@@ -407,29 +412,34 @@ def test_more_catalytic_capital_is_not_always_better(data):
 # `references` block in config/assumptions.yaml). The tests below pin the claims the
 # UI makes about them, so the prose and the arithmetic cannot drift apart.
 
-def test_every_reference_is_fixed_while_the_scenario_moves(data):
-    """All three lines are references, not scenarios: no slider may move any of them."""
-    before = {k: v["pathway"].reduction_vs_2019.tolist() for k, v in reference_pathways().items()}
+def test_every_preset_is_fixed_while_the_sidebar_moves(data):
+    """Presets are fixed strategies: the sidebar drives Custom only, never these."""
+    before = {k: v["result"].pathway.reduction_vs_2019.tolist()
+              for k, v in preset_scenarios().items()}
     for lever, value in [("saf_share_2030", 0.45), ("saf_share_2040", 0.95),
                          ("fleet_renewal", 1.0), ("novel_propulsion", 0.5),
                          ("saf_premium", 0.1), ("partner_share", 0.9),
                          ("carbon_price", 500), ("catalytic_pct", 0.05)]:
         scenario(data, **{lever: value})
-        after = {k: v["pathway"].reduction_vs_2019.tolist()
-                 for k, v in reference_pathways().items()}
+        after = {k: v["result"].pathway.reduction_vs_2019.tolist()
+                 for k, v in preset_scenarios().items()}
         assert after == before, lever
 
 
-def test_references_are_ordered_by_ambition(data):
-    refs = reference_pathways()
-    assert (refs["bau"]["reduction_2040"] < refs["conservative"]["reduction_2040"]
-            < refs["all_in"]["reduction_2040"])
+def _red(scn, year):
+    return scn["result"].pathway.set_index("year").loc[year, "reduction_vs_2019"]
+
+
+def test_presets_are_ordered_by_ambition(data):
+    p = preset_scenarios()
+    assert (bau_reference()["reduction_2040"] < _red(p["conservative"], 2040)
+            < _red(p["all_in"], 2040))
 
 
 def test_conservative_lands_exactly_on_the_2030_floor(data):
     """'Reaching 2030' is the band floor, solved by the model, not a chosen number."""
     floor = data["config"]["meta"]["target_band"][0]
-    assert reference_pathways()["conservative"]["reduction_2030"] == pytest.approx(floor, abs=5e-4)
+    assert _red(preset_scenarios()["conservative"], 2030) == pytest.approx(floor, abs=5e-4)
 
 
 def test_conservative_saf_ramp_is_one_straight_line(data):

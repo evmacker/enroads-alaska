@@ -21,10 +21,11 @@ streamlit run app.py
 The page opens on a 2030 | 2040 KPI grid — six matching figures per milestone year
 (intensity reduction, tonnes needing offset, SAF cost, offset cost, and each cost as a
 share of projected revenue) — over a full-width intensity-reduction projection with the
-2030 target band shaded. A three-button toggle above the projection picks which fixed
-reference line it is drawn against — business as usual, conservative, or all-in — and the
-chart sweeps gently left to right when the choice changes. Below that sits the abatement
-waterfall, then a tab strip for SAF supply vs demand, the carbon market, the emissions
+2030 target band shaded. A three-button toggle picks the strategy — Conservative, All-In or
+Custom — and drives the whole panel: the KPI tiles, both charts and the captions. The
+strategy is always the blue line; business as usual sits behind it in grey dashes and
+never moves. The right-hand chart pairs tonnes still needing offset against that year's
+cost, per year rather than cumulative. Below that sits the abatement waterfall, then a tab strip for SAF supply vs demand, the carbon market, the emissions
 pathway, the annual table and the model notes.
 
 The three reference pathways are **scenario definitions asserted from outside the
@@ -37,8 +38,8 @@ Two price mechanisms exist so that "invest early, save later" is expressible at 
 catalytic capital walks the SAF premium down after its maturation lag, and the carbon
 planning price can escalate in real terms. Both are inert at their defaults, so workbook
 parity is untouched. `docs/model_decisions.md` uses them to review the hypothesis that
-**delaying is cheaper to 2030 but dearer to reach net zero by 2040** — the first half
-holds, the second half needs carbon escalating at roughly 4%/yr or more.
+**delaying is cheaper to 2030 but dearer to reach net zero by 2040** — which holds in
+both halves: Conservative leads by $1.37B to 2030, then loses by $6.48B by 2040.
 
 The investable-cash headroom KPI and its budget-bar chart are still in the engine
 (`financial_2040`) and in `src/viz.py::budget_bar`, but are not currently on the page.
@@ -68,7 +69,7 @@ once per rerun and draws the result. `tests/test_app.py` enforces both.
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest tests -q      # 102 tests
+python -m pytest tests -q      # 106 tests
 ```
 
 `tests/test_parity.py` reproduces every column of the workbook's `Model` sheet for every

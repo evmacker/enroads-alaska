@@ -69,7 +69,7 @@ once per rerun and draws the result. `tests/test_app.py` enforces both.
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest tests -q      # 106 tests
+python -m pytest tests -q      # 110 tests
 ```
 
 `tests/test_parity.py` reproduces every column of the workbook's `Model` sheet for every

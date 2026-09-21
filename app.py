@@ -11,8 +11,8 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 import viz  # noqa: E402
-from model import (bau_reference, default_inputs, load_data, preset_scenarios,  # noqa: E402
-                   run_scenario)
+from model import (bau_reference, default_inputs, load_data, preset_inputs,  # noqa: E402
+                   preset_scenarios, run_scenario)
 from model.core import LEVER_ORDER, SCENARIO_ORDER  # noqa: E402
 
 st.set_page_config(page_title="Alaska Airlines decarbonization", page_icon="✈️", layout="wide")
@@ -22,16 +22,44 @@ GROUPS = ["SAF", "Operations", "Money", "Baselines"]
 REFS = DATA["config"]["references"]
 
 
+LEVERS = [k for k, s in SPEC.items() if s.get("visible", True) and s["fmt"] != "choice"]
+
+
+def _shown(key, raw):
+    """Sliders hold percentages as 0-100, everything else at face value."""
+    return float(raw) * 100 if SPEC[key]["fmt"] == "pct" else float(raw)
+
+
+for _k in LEVERS:                      # seed once, before any widget reads it
+    if f"in_{_k}" not in st.session_state:
+        st.session_state[f"in_{_k}"] = _shown(_k, SPEC[_k]["default"])
+
+
+def _lever_touched():
+    """Moving any lever means you have left the preset behind."""
+    st.session_state.scenario = "custom"
+
+
+def _strategy_picked():
+    """Picking a preset pushes its own values back into the sidebar."""
+    name = st.session_state.get("scenario")
+    if not name or name == "custom":
+        return
+    chosen = dataclasses.asdict(preset_inputs(name, DATA))
+    for key in LEVERS:
+        st.session_state[f"in_{key}"] = _shown(key, chosen[key])
+
+
 def control(key):
-    s = SPEC[key]
+    s, state = SPEC[key], f"in_{key}"
     if s["fmt"] == "choice":
         return st.selectbox(s["label"], s["options"], help=s["help"])
     if s["fmt"] == "pct":
-        v = st.slider(s["label"], s["min"] * 100, s["max"] * 100, s["default"] * 100,
-                      s["step"] * 100, format="%.1f%%", help=s["help"])
-        return v / 100
-    return st.slider(s["label"], float(s["min"]), float(s["max"]), float(s["default"]),
-                     float(s["step"]), format="$%.0f", help=s["help"])
+        return st.slider(s["label"], s["min"] * 100, s["max"] * 100, step=s["step"] * 100,
+                         format="%.1f%%", help=s["help"], key=state,
+                         on_change=_lever_touched) / 100
+    return st.slider(s["label"], float(s["min"]), float(s["max"]), step=float(s["step"]),
+                     format="$%.0f", help=s["help"], key=state, on_change=_lever_touched)
 
 
 def money(x):
@@ -82,7 +110,8 @@ with st.sidebar:
         with st.expander(group, expanded=group in ("SAF", "Money")):
             for key in keys:
                 values[key] = control(key)
-    st.caption("Defaults reproduce the source workbook. Model runs 2025→2040.")
+    st.caption("These are the selected strategy's own values. Move any of them and the "
+               "strategy switches to Custom. Model runs 2025→2040.")
 
 custom_inputs = dataclasses.replace(default_inputs(DATA), **values)
 SCENARIOS = {**preset_scenarios(),
@@ -98,14 +127,16 @@ st.caption("A stripped-down En-ROADS for one airline: pick a strategy, see wheth
 picker, _ = st.columns([2, 3])
 with picker:
     choice = st.segmented_control("Strategy", options=list(SCENARIO_ORDER), default="custom",
-                                  format_func=lambda k: SCENARIOS[k]["label"], key="scenario")
+                                  format_func=lambda k: SCENARIOS[k]["label"], key="scenario",
+                                  on_change=_strategy_picked)
 scn = SCENARIOS[choice or "custom"]     # segmented_control returns None when deselected
 inputs, result = scn["inputs"], scn["result"]
 o30, p40, f40 = result.outcome_2030, result.physical_2040, result.financial_2040
 
 st.caption(f"**{scn['label']}** — {scn['note']}"
            + ("" if scn["key"] == "custom" else
-              "  *The sidebar drives Custom only; this strategy is fixed.*"))
+              "  *The sidebar shows this strategy's values; moving any of them switches "
+              "to Custom.*"))
 
 left, right = st.columns(2, gap="medium")
 for column, year in ((left, 2030), (right, 2040)):

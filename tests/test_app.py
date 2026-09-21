@@ -86,14 +86,14 @@ def test_strategy_toggle_switches_the_blue_line():
     assert len(set(seen.values())) == 3
 
 
-def test_presets_say_the_sidebar_does_not_drive_them():
+def test_presets_say_that_moving_a_lever_switches_to_custom():
     at = run()
     at.button_group[0].set_value(["all_in"])
     at.run()
-    assert "sidebar drives Custom only" in _strategy_caption(at)
+    assert "switches to Custom" in _strategy_caption(at)
     at.button_group[0].set_value(["custom"])
     at.run()
-    assert "sidebar drives Custom only" not in _strategy_caption(at)
+    assert "switches to Custom" not in _strategy_caption(at)
 
 
 def test_toggle_defaults_to_custom():
@@ -110,6 +110,52 @@ def test_switching_strategy_changes_the_kpi_tiles():
     at.button_group[0].set_value(["all_in"])
     at.run()
     assert cons != " ".join(m.value for m in at.markdown)
+
+
+def _levers(at):
+    return {w.label: w.value for w in at.slider}
+
+
+def test_picking_a_preset_fills_the_sidebar_with_its_own_values():
+    at = run()
+    assert _levers(at)["SAF share 2040"] == 60.0          # workbook default on open
+    at.button_group[0].set_value(["all_in"])
+    at.run()
+    levers = _levers(at)
+    assert levers["SAF share 2040"] == 90.0
+    assert levers["Catalytic capital (% revenue)"] == 2.0
+    assert levers["Partner-funded share of premium"] == 20.0
+
+
+def test_conservative_fills_in_the_saf_share_it_solved_for():
+    """Its 2030 share is derived, not chosen, and the sidebar shows the derived number."""
+    at = run()
+    at.button_group[0].set_value(["conservative"])
+    at.run()
+    levers = _levers(at)
+    assert levers["SAF share 2030"] == pytest.approx(3.68, abs=0.01)
+    assert levers["Catalytic capital (% revenue)"] == 0.0
+
+
+def test_moving_a_lever_leaves_the_preset_and_runs_the_moved_value():
+    """The callback that does this cannot be driven here — AppTest cannot re-read a
+    single-select button group — so the state it leaves behind is restated instead."""
+    at = run()
+    at.button_group[0].set_value(["all_in"])
+    at.run()
+    at.button_group[0].set_value(["custom"])       # what _lever_touched sets
+    at.slider[1].set_value(35.0)                   # SAF share 2040
+    at.run()
+    assert not at.exception, at.exception
+    assert "Custom" in _strategy_caption(at)
+    assert _levers(at)["SAF share 2040"] == 35.0
+
+
+def test_the_lever_callback_is_wired_to_every_slider():
+    """Guards the wiring the test above has to stub out."""
+    source = Path(APP).read_text()
+    assert source.count("on_change=_lever_touched") == 2      # pct and usd branches
+    assert 'st.session_state.scenario = "custom"' in source
 
 
 def test_chart_reveal_is_keyed_to_the_selected_strategy():

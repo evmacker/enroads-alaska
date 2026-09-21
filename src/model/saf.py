@@ -29,3 +29,24 @@ def catalytic_capacity(years, revenue, catalytic_pct, a):
         matured[y] = m
         capacity[y] = m / a["saf_capital_intensity"]
     return invest, matured, capacity
+
+
+def learning_factor(year, catalytic_pct, a, base_year):
+    """Compounding price decline bought by sustained catalytic investment.
+
+    The workbook has no such mechanism: this is an explicit assumption that early
+    money buys cheaper SAF later, so investing before it pays off still pays off by
+    2040. It starts after the same maturation lag the capacity effect uses, and
+    compounds once per year thereafter.
+
+    It moves the SAF premium only. Alaska funding SAF capacity is not a reason for the
+    global carbon credit price to fall, and discounting both by the same factor would
+    leave their ratio fixed - which can never change which tonne is cheaper.
+
+    Returns exactly 1.0 when nothing is invested, which is what keeps workbook parity.
+    """
+    if catalytic_pct <= 0:
+        return 1.0
+    years_active = max(0, year - base_year - a["catalytic_lag_years"])
+    rate = min(1.0, catalytic_pct * a["catalytic_learning_rate"])
+    return (1 - rate) ** years_active

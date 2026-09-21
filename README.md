@@ -14,16 +14,31 @@ streamlit run app.py
 | | Question | Where |
 |---|---|---|
 | **2030** | Does intensity reduction vs 2019 land in Alaska's 10–14% band? | KPI grid + projection chart |
-| **vs doing nothing** | What do Alaska's own levers buy over published industry baselines? | fixed BAU line on the projection |
+| **vs a reference** | What do Alaska's own levers buy over business as usual, a conservative path, or an all-in one? | three-way toggle on the projection |
 | **2040 physical** | How many tonnes remain after efficiency, fleet, SAF, electrification and propulsion? | abatement waterfall |
 | **2040 financial** | What do SAF and offsets cost, as dollars and as a share of revenue? | KPI grid |
 
 The page opens on a 2030 | 2040 KPI grid — six matching figures per milestone year
 (intensity reduction, tonnes needing offset, SAF cost, offset cost, and each cost as a
 share of projected revenue) — over a full-width intensity-reduction projection with the
-2030 target band shaded. Below that sits the abatement waterfall, then a tab strip for
-SAF supply vs demand, the carbon market, the emissions pathway, the annual table and the
-model notes.
+2030 target band shaded. A three-button toggle above the projection picks which fixed
+reference line it is drawn against — business as usual, conservative, or all-in — and the
+chart sweeps gently left to right when the choice changes. Below that sits the abatement
+waterfall, then a tab strip for SAF supply vs demand, the carbon market, the emissions
+pathway, the annual table and the model notes.
+
+The three reference pathways are **scenario definitions asserted from outside the
+workbook**, not workbook data. They live in the `references` block of
+`config/assumptions.yaml`; `docs/model_decisions.md` sets out what each one derives and
+what it asserts, and why All-In is a stated assumption set rather than a least-cost
+solution.
+
+Two price mechanisms exist so that "invest early, save later" is expressible at all:
+catalytic capital walks the SAF premium down after its maturation lag, and the carbon
+planning price can escalate in real terms. Both are inert at their defaults, so workbook
+parity is untouched. `docs/model_decisions.md` uses them to review the hypothesis that
+**delaying is cheaper to 2030 but dearer to reach net zero by 2040** — the first half
+holds, the second half needs carbon escalating at roughly 4%/yr or more.
 
 The investable-cash headroom KPI and its budget-bar chart are still in the engine
 (`financial_2040`) and in `src/viz.py::budget_bar`, but are not currently on the page.
@@ -53,7 +68,7 @@ once per rerun and draws the result. `tests/test_app.py` enforces both.
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest tests -q      # 55 tests
+python -m pytest tests -q      # 102 tests
 ```
 
 `tests/test_parity.py` reproduces every column of the workbook's `Model` sheet for every

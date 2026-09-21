@@ -13,6 +13,10 @@ def run(overrides=None):
     for index, value in (overrides or {}).items():
         at.slider[index].set_value(value)
     if overrides:
+        # AppTest cannot re-read a single-select button group: its `indices` property
+        # iterates the widget value, which comes back as a bare string after a run. Only
+        # the harness is affected, not the app, so restate the default before rerunning.
+        at.button_group[0].set_value(["bau"])
         at.run()
         assert not at.exception, at.exception
     return at
@@ -20,11 +24,12 @@ def run(overrides=None):
 
 def test_app_renders_with_defaults():
     at = run()
-    assert len(at.slider) == 13 and len(at.selectbox) == 0   # 13 visible scenario controls
+    assert len(at.slider) == 14 and len(at.selectbox) == 0   # 14 visible scenario controls
     # visible:false inputs render no widget at all; the engine still gets their config default.
     labels = [w.label for w in list(at.slider) + list(at.selectbox)]
     assert not any("Investable cash" in x or "supply case" in x for x in labels)
     assert "Carbon planning price ($/t)" in labels
+    assert len(at.button_group) == 1 and len(at.button_group[0].options) == 3
     assert any("Alaska Airlines decarbonization pathway" in m.value for m in at.markdown)
 
 
@@ -59,6 +64,39 @@ def test_kpi_grid_shows_both_milestone_years():
 @pytest.mark.parametrize("index, value", [(0, 50.0), (1, 100.0), (7, 5.0), (8, 3.0), (11, 500.0)])
 def test_extreme_slider_positions_do_not_break_the_app(index, value):
     run({index: value})
+
+
+def _reference_caption(at):
+    return [c.value for c in at.caption if "by 2030 and" in c.value][0]
+
+
+def test_reference_toggle_switches_the_comparison_line():
+    """Each of the three buttons redraws the chart against a different fixed pathway."""
+    at = run()
+    seen = {}
+    for key in ("bau", "conservative", "all_in"):
+        at.button_group[0].set_value([key])        # re-fetch the node on every pass
+        at.run()
+        assert not at.exception, at.exception
+        seen[key] = _reference_caption(at)
+    assert "Business as usual" in seen["bau"]
+    assert "Conservative" in seen["conservative"]
+    assert "All-In" in seen["all_in"]
+    assert len(set(seen.values())) == 3
+
+
+def test_toggle_defaults_to_business_as_usual():
+    """Opening the page must look exactly like it did before the toggle existed."""
+    assert "Business as usual" in _reference_caption(run())
+
+
+def test_chart_reveal_is_keyed_to_the_selected_reference():
+    """The keyframe name carries the reference key — that is what replays the sweep."""
+    at = run()
+    assert "unfurl-bau" in " ".join(m.value for m in at.markdown if "@keyframes" in m.value)
+    at.button_group[0].set_value(["all_in"])
+    at.run()
+    assert "unfurl-all_in" in " ".join(m.value for m in at.markdown if "@keyframes" in m.value)
 
 
 def test_app_holds_no_business_logic():

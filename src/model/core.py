@@ -23,6 +23,7 @@ class ScenarioInputs:
     ground_elec: float
     novel_propulsion: float
     carbon_price: float
+    carbon_escalation: float
     catalytic_pct: float
     investable_pct: float
     activity_adj: float
@@ -128,12 +129,22 @@ def run_scenario(inputs: ScenarioInputs, data: dict) -> ScenarioResult:
         r["effective_saf_gal"] = r["liquid_fuel_gal"] * r["effective_saf_share"]
 
         r.update(emissions.intensity_and_emissions(r, r["effective_saf_share"], a, data))
+
+        # Two prices moving apart: catalytic capital walks the SAF premium down, while the
+        # carbon price escalates as cheap credits are exhausted. Both are inert at their
+        # defaults (no investment, no escalation), so the workbook path is unchanged.
+        r["learning_factor"] = saf.learning_factor(y, inputs.catalytic_pct, a, BASE_YEAR)
+        premium = inputs.saf_premium * r["learning_factor"]
+        carbon_price = finance.carbon_price_path(y, inputs.carbon_price,
+                                                 inputs.carbon_escalation, BASE_YEAR)
+        r["effective_saf_premium"] = premium
+
         r.update(finance.fuel_costs(r["liquid_fuel_gal"], r["effective_saf_gal"],
                                     data["jet_price_2025"] * data["eia_fuel_price"][y],
-                                    inputs.saf_premium, inputs.partner_share))
+                                    premium, inputs.partner_share))
 
         # Cost to neutralize this year's residual, priced every year for the KPI tiles.
-        r["offset_cost"] = finance.closure_cost(r["residual_emis"], inputs.carbon_price,
+        r["offset_cost"] = finance.closure_cost(r["residual_emis"], carbon_price,
                                                 a["neutralization_share"])
         r["offset_share_revenue"] = r["offset_cost"] / r["revenue"]
         r["carbon_supply"] = finance.carbon_supply(y, data["removal_volume"],
@@ -142,12 +153,12 @@ def run_scenario(inputs: ScenarioInputs, data: dict) -> ScenarioResult:
         r["closure_cost"] = r["offset_cost"] if y == NETZERO_YEAR else 0.0
         # Marginal abatement price: what a tonne costs via SAF vs via offsets.
         r["saf_cost_per_tonne"] = finance.saf_abatement_cost(
-            r["jet_price"], inputs.saf_premium, inputs.partner_share,
+            r["jet_price"], premium, inputs.partner_share,
             data["tonnes_avoided_per_saf_gallon"])
-        r["carbon_price"] = inputs.carbon_price
-        r["abatement_spread"] = r["saf_cost_per_tonne"] - inputs.carbon_price
+        r["carbon_price"] = carbon_price
+        r["abatement_spread"] = r["saf_cost_per_tonne"] - carbon_price
         r["breakeven_premium"] = finance.breakeven_premium(
-            inputs.carbon_price, r["jet_price"], inputs.partner_share,
+            carbon_price, r["jet_price"], inputs.partner_share,
             data["tonnes_avoided_per_saf_gallon"])
         r["physical_decarb_spend"] = r["net_saf_premium"] + r["catalytic_investment"]
         r.update(finance.headroom(r["revenue"], inputs.investable_pct,
@@ -173,7 +184,7 @@ def run_scenario(inputs: ScenarioInputs, data: dict) -> ScenarioResult:
         scope2_emis=y40["scope2_emis"], intensity=y40["intensity"],
         reduction_vs_2019=y40["reduction_vs_2019"],
         effective_saf_share=y40["effective_saf_share"], market_capture=y40["market_capture"],
-        supply_gap_gal=y40["supply_gap_gal"],
+        supply_gap_gal=y40["supply_gap_gal"], carbon_price=y40["carbon_price"],
         abatement=_abatement_breakdown(inputs, data, a, horizon),
     )
 
@@ -227,6 +238,53 @@ def bau_reference():
                 reduction_2040=float(indexed.loc[NETZERO_YEAR]))
 
 
+REFERENCE_ORDER = ("bau", "conservative", "all_in")
+
+
+def _conservative_saf_ramp(data):
+    """Meet the 2030 floor on SAF alone, then hold that same ramp rate out to 2040.
+
+    The 2030 share is solved by the model's own required-share calculation against the
+    published band floor, so the share itself is derived rather than chosen. The only
+    thing asserted here is the rule that the 2025-2030 slope simply continues - which
+    makes the whole SAF ramp one straight line from 2025 to 2040.
+    """
+    floor = data["config"]["meta"]["target_band"][0]
+    solved = run_scenario(default_inputs(data), data).outcome_2030["required_saf_share"]
+    s2030, s2025 = solved[f"{floor:.0%}"], data["base_saf_share"]
+    slope = (s2030 - s2025) / (TARGET_YEAR - BASE_YEAR)
+    return dict(saf_share_2030=s2030,
+                saf_share_2040=s2030 + slope * (NETZERO_YEAR - TARGET_YEAR))
+
+
+@lru_cache(maxsize=1)
+def reference_pathways():
+    """The three fixed pathways the projection chart draws against the live scenario.
+
+    Each is computed from a fixed input set rather than the user's, so none of these
+    lines move when a slider moves - that is what makes them references rather than
+    scenarios. What they assert lives in config/assumptions.yaml, not in chart code.
+    """
+    data = load_data()
+    specs = data["config"]["references"]
+    out = {}
+    for name in REFERENCE_ORDER:
+        spec = specs[name]
+        if name == "bau":
+            pathway = bau_reference()["pathway"]
+        else:
+            overrides = dict(spec.get("overrides") or {})
+            if name == "conservative":
+                overrides.update(_conservative_saf_ramp(data))
+            result = run_scenario(dataclasses.replace(default_inputs(data), **overrides), data)
+            pathway = result.pathway[["year", "reduction_vs_2019", "residual_emis"]]
+        indexed = pathway.set_index("year")["reduction_vs_2019"]
+        out[name] = dict(key=name, label=spec["label"], note=spec["note"], pathway=pathway,
+                         reduction_2030=float(indexed.loc[TARGET_YEAR]),
+                         reduction_2040=float(indexed.loc[NETZERO_YEAR]))
+    return out
+
+
 def _milestone(row, band, year):
     """The same six KPI figures for any milestone year, so the UI can loop instead of branch.
 
@@ -239,6 +297,7 @@ def _milestone(row, band, year):
         year=year, reduction=row["reduction_vs_2019"], intensity=row["intensity"],
         residual_emis=row["residual_emis"], revenue=row["revenue"],
         saf_cost=row["net_saf_premium"], saf_share_revenue=row["saf_cost_share_revenue"],
+        carbon_price=row["carbon_price"],
         offset_cost=row["offset_cost"], offset_share_revenue=row["offset_share_revenue"],
         effective_saf_share=row["effective_saf_share"], **verdict)
 

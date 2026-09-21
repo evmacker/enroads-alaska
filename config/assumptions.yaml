@@ -21,7 +21,49 @@ inputs:
   saf_supply_case:  {default: "Base", options: ["Base", "Conservative"], label: "US SAF supply case", help: "Base = Rystad 190k bpd 2035; Conservative = 110k bpd.", fmt: "choice", group: "Baselines", visible: false}
   post_2035_growth: {default: 0.10, min: 0.0,  max: 0.20, step: 0.01, label: "Post-2035 SAF growth (%/yr)", help: "Growth after the last published 2035 anchor. 0% is a stress-test floor, not a neutral choice - it asserts US SAF production physically flatlines for five years, which no policy or project pipeline supports. Use ~1%/yr as a conservative floor; 0% only to test fragility.", fmt: "pct", group: "Baselines"}
   carbon_price:     {default: 200,  min: 25,   max: 500,  step: 25,   label: "Carbon planning price ($/t)", help: "Single planning price on modeled 2040 residual. CORSIA midpoint reference is $59/t; durable removal benchmark is $200/t.", fmt: "usd", group: "Baselines"}
+  carbon_escalation: {default: 0.00, min: 0.0, max: 0.10, step: 0.005, label: "Carbon price escalation (%/yr)", help: "Real growth in the carbon planning price as cheap credits are exhausted. 0% reproduces the workbook's single flat price. The reference pathways use 3.3%/yr, the rate that brings $200/t up to SAF's own $324/t by 2040.", fmt: "pct", group: "Baselines"}
   removal_growth:   {default: 0.00, min: 0.0,  max: 0.60, step: 0.05, label: "Durable removal market growth (%/yr)", help: "Growth of the durable carbon removal market from its observed Aug/Sep 2026 volume. 0% avoids hidden extrapolation; there is no published forward supply anchor, so this is yours to set. Presentational only - it never constrains the model.", fmt: "pct", group: "Baselines"}
+
+# Reference pathways for the projection chart's three-way toggle.
+#
+# NOT workbook data. Every value under `overrides` is a scenario assumption asserted
+# from OUTSIDE Alaska_Airlines_Model_Revenue_Anchored_v3.xlsx, agreed in session on
+# 2026-09-21. They live here, beside the inputs they set, so the chart's claims stay
+# auditable rather than buried in chart code. Keys are ScenarioInputs fields; anything
+# unlisted keeps its default above. BAU and Conservative carry no overrides because
+# both are derived - see core.bau_reference() and core._conservative_saf_ramp().
+references:
+  bau:
+    label: "Business as usual"
+    note: >-
+      FAA activity and EIA efficiency as published, SAF flat at its 2025 share, and none
+      of Alaska's own levers.
+    overrides: {}
+  conservative:
+    label: "Conservative"
+    note: >-
+      Meets the 2030 floor on SAF alone, then holds that same ramp rate out to 2040
+      instead of accelerating, and never invests ahead of the curve.
+    overrides:
+      carbon_escalation: 0.033
+  all_in:
+    label: "All-In"
+    note: >-
+      Invests 2% of revenue in catalytic capital from the start, which buys a compounding
+      2%/yr decline in both the SAF premium and the carbon price once it matures, and
+      partners carry 20% of the premium that is left. The price declines are earned by the
+      spending rather than assumed, so this pathway pays before it saves. Fleet, ground and
+      propulsion move only marginally because their capex is not modeled and maxing free
+      levers would flatter the result.
+    overrides:
+      saf_share_2030: 0.15
+      saf_share_2040: 0.90
+      partner_share: 0.20
+      catalytic_pct: 0.02
+      fleet_renewal: 0.20
+      ground_elec: 0.25
+      novel_propulsion: 0.05
+      carbon_escalation: 0.033
 
 # Backend anchors. Not user-editable.
 anchors:
@@ -30,6 +72,11 @@ anchors:
   neutralization_share: 1.00         # share of 2040 residual neutralized
   saf_capital_intensity: 14.6666666667  # $ per annual gallon of capacity (DOE: >$44B for >3B gal/yr)
   catalytic_lag_years: 3
+  # NEW, not from the workbook: catalytic capital buys a compounding price decline.
+  # Multiplier on catalytic_pct, so 1% of revenue invested buys a 1%/yr decline in
+  # BOTH the SAF premium and the carbon price, compounding after catalytic_lag_years.
+  # Exactly 1.0 (no effect) whenever catalytic_pct is 0, which keeps workbook parity.
+  catalytic_learning_rate: 1.0
   saf_2030_probable: 2048980612      # peer-reviewed probable production
   saf_2035_base: 2912700000          # Rystad base 190k bpd
   saf_2035_conservative: 1686300000  # Rystad low 110k bpd

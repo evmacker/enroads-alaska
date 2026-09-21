@@ -14,6 +14,15 @@ def fuel_costs(liquid_gal, saf_gal, jet_price, premium, partner_share):
                 partner_contribution=saf_gal * jet_price * premium * partner_share)
 
 
+def carbon_price_path(year, base_price, escalation, base_year):
+    """Planning price rising in real terms as the cheapest credits are used up.
+
+    NEW, not from the workbook, which carries one flat price. At escalation = 0 this
+    returns that flat price unchanged, which is what keeps parity.
+    """
+    return base_price * (1 + escalation) ** (year - base_year)
+
+
 def closure_cost(residual_emis, carbon_price, neutralization_share):
     return residual_emis * carbon_price * neutralization_share
 

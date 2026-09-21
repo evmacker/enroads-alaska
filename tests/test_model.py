@@ -3,7 +3,8 @@ import dataclasses
 
 import pytest
 
-from model import bau_reference, load_data, default_inputs, run_scenario
+from model import (bau_reference, load_data, default_inputs, reference_pathways,
+                   run_scenario)
 from model.targets import classify_2030, classify_2040_finance
 
 
@@ -217,10 +218,14 @@ def test_reported_saf_cost_per_tonne_matches_measured_abatement(data):
 @pytest.mark.parametrize("lever, value", [
     ("saf_share_2040", 0.25), ("saf_share_2040", 0.95),   # the share cancels out
     ("efficiency_adj", 0.02), ("fleet_renewal", 1.0), ("novel_propulsion", 0.5),
-    ("activity_adj", 0.03), ("ground_elec", 1.0), ("catalytic_pct", 0.02),
+    ("activity_adj", 0.03), ("ground_elec", 1.0),
 ])
 def test_saf_cost_per_tonne_is_invariant_to_quantity_levers(data, lever, value):
-    """It is a price, not a total: only fuel price, premium and partner share move it."""
+    """It is a price, not a total: quantity levers cannot move it.
+
+    catalytic_pct is deliberately absent — since the learning curve was added it is a
+    price lever, which the next test pins.
+    """
     base = scenario(data).pathway.set_index("year").loc[2040, "saf_cost_per_tonne"]
     moved = scenario(data, **{lever: value}).pathway.set_index("year").loc[2040, "saf_cost_per_tonne"]
     assert moved == pytest.approx(base, rel=1e-12)
@@ -234,6 +239,32 @@ def test_price_levers_scale_saf_cost_per_tonne(data, lever, value, factor):
     base = scenario(data).pathway.set_index("year").loc[2040, "saf_cost_per_tonne"]
     moved = scenario(data, **{lever: value}).pathway.set_index("year").loc[2040, "saf_cost_per_tonne"]
     assert moved == pytest.approx(base * factor, rel=1e-12)
+
+
+def test_catalytic_capital_walks_the_saf_price_down(data):
+    """The learning curve: sustained investment makes every later tonne of SAF cheaper."""
+    off = scenario(data, catalytic_pct=0.0).pathway.set_index("year")
+    on = scenario(data, catalytic_pct=0.02).pathway.set_index("year")
+    assert on.loc[2025, "saf_cost_per_tonne"] == pytest.approx(off.loc[2025, "saf_cost_per_tonne"])
+    assert on.loc[2027, "saf_cost_per_tonne"] == pytest.approx(off.loc[2027, "saf_cost_per_tonne"])
+    assert on.loc[2030, "saf_cost_per_tonne"] < off.loc[2030, "saf_cost_per_tonne"]
+    assert on.loc[2040, "saf_cost_per_tonne"] < on.loc[2030, "saf_cost_per_tonne"]
+
+
+def test_carbon_price_escalates_only_when_asked(data):
+    """Flat at the 0% default, which is the workbook's single-price assumption."""
+    flat = scenario(data).pathway.set_index("year")["carbon_price"]
+    assert flat.nunique() == 1 and flat.iloc[0] == 200
+    rising = scenario(data, carbon_escalation=0.033).pathway.set_index("year")["carbon_price"]
+    assert rising.loc[2025] == pytest.approx(200)
+    assert rising.loc[2040] == pytest.approx(200 * 1.033 ** 15, rel=1e-12)
+
+
+def test_learning_and_escalation_move_the_two_prices_apart(data):
+    """Why the discount is asymmetric: a symmetric one could never flip the ordering."""
+    r = scenario(data, catalytic_pct=0.02, carbon_escalation=0.033).pathway.set_index("year")
+    assert r.loc[2040, "saf_cost_per_tonne"] < r.loc[2040, "carbon_price"]
+    assert r.loc[2025, "saf_cost_per_tonne"] > r.loc[2025, "carbon_price"]
 
 
 def test_saf_cost_per_tonne_tracks_the_jet_fuel_price(data):
@@ -321,15 +352,128 @@ def test_scenario_beats_bau_at_default_settings(data):
     assert scenario(data).outcome_2030["reduction"] > bau_reference()["reduction_2030"]
 
 
-def test_catalytic_capital_abates_nothing_when_supply_does_not_bind(data):
-    """Pins a trap in the model: unconstrained, this lever is cost with no emissions effect."""
+# --- the delay hypothesis -----------------------------------------------------
+#
+# "Being conservative costs less to reach 2030, but more to reach net zero by 2040."
+# These pin the answer docs/model_decisions.md reports, so the prose cannot drift.
+
+def _cumulative_cost(data, overrides, through=2040):
+    """Physical spend plus the cost of neutralising every year's residual."""
+    p = scenario(data, **overrides).pathway.set_index("year").loc[:through]
+    return p[["net_saf_premium", "catalytic_investment", "offset_cost"]].to_numpy().sum()
+
+
+def _both_strategies(data, **world):
+    from model.core import _conservative_saf_ramp
+    refs = data["config"]["references"]
+    cons = {**refs["conservative"]["overrides"], **_conservative_saf_ramp(data), **world}
+    allin = {**refs["all_in"]["overrides"], **world}
+    return cons, allin
+
+
+def test_conservative_is_cheaper_to_reach_2030(data):
+    """First half of the hypothesis: delay genuinely is cheaper in the short run."""
+    cons, allin = _both_strategies(data)
+    assert _cumulative_cost(data, cons, 2030) < _cumulative_cost(data, allin, 2030)
+
+
+def test_the_2040_gap_all_but_closes_at_the_reference_carbon_world(data):
+    """Second half: All-In nearly catches up by 2040, but does not quite overtake."""
+    cons, allin = _both_strategies(data)
+    c, a = _cumulative_cost(data, cons), _cumulative_cost(data, allin)
+    assert a > c                                  # conservative still ahead...
+    assert (a - c) / c < 0.01                     # ...by under 1%
+
+
+def test_all_in_wins_outright_once_carbon_escalates_faster(data):
+    """Where the hypothesis becomes true: escalation at or above ~4%/yr."""
+    for rate, all_in_wins in ((0.033, False), (0.04, True), (0.05, True)):
+        cons, allin = _both_strategies(data, carbon_escalation=rate)
+        wins = bool(_cumulative_cost(data, allin) < _cumulative_cost(data, cons))
+        assert wins is all_in_wins, rate
+
+
+def test_more_catalytic_capital_is_not_always_better(data):
+    """The lever has an interior optimum: 3% of revenue loses to 2% at every rate."""
+    for rate in (0.033, 0.05):
+        _, allin = _both_strategies(data, carbon_escalation=rate)
+        assert _cumulative_cost(data, {**allin, "catalytic_pct": 0.03}) > \
+               _cumulative_cost(data, {**allin, "catalytic_pct": 0.02})
+
+
+# --- the three reference pathways on the projection toggle --------------------
+#
+# These encode scenario definitions asserted from outside the workbook (see the
+# `references` block in config/assumptions.yaml). The tests below pin the claims the
+# UI makes about them, so the prose and the arithmetic cannot drift apart.
+
+def test_every_reference_is_fixed_while_the_scenario_moves(data):
+    """All three lines are references, not scenarios: no slider may move any of them."""
+    before = {k: v["pathway"].reduction_vs_2019.tolist() for k, v in reference_pathways().items()}
+    for lever, value in [("saf_share_2030", 0.45), ("saf_share_2040", 0.95),
+                         ("fleet_renewal", 1.0), ("novel_propulsion", 0.5),
+                         ("saf_premium", 0.1), ("partner_share", 0.9),
+                         ("carbon_price", 500), ("catalytic_pct", 0.05)]:
+        scenario(data, **{lever: value})
+        after = {k: v["pathway"].reduction_vs_2019.tolist()
+                 for k, v in reference_pathways().items()}
+        assert after == before, lever
+
+
+def test_references_are_ordered_by_ambition(data):
+    refs = reference_pathways()
+    assert (refs["bau"]["reduction_2040"] < refs["conservative"]["reduction_2040"]
+            < refs["all_in"]["reduction_2040"])
+
+
+def test_conservative_lands_exactly_on_the_2030_floor(data):
+    """'Reaching 2030' is the band floor, solved by the model, not a chosen number."""
+    floor = data["config"]["meta"]["target_band"][0]
+    assert reference_pathways()["conservative"]["reduction_2030"] == pytest.approx(floor, abs=5e-4)
+
+
+def test_conservative_saf_ramp_is_one_straight_line(data):
+    """The asserted rule: the 2025-2030 SAF slope simply continues to 2040."""
+    from model.core import _conservative_saf_ramp
+    ramp = _conservative_saf_ramp(data)
+    s25, s30, s40 = data["base_saf_share"], ramp["saf_share_2030"], ramp["saf_share_2040"]
+    assert (s40 - s30) / 10 == pytest.approx((s30 - s25) / 5, rel=1e-12)
+
+
+def test_all_in_makes_saf_the_cheaper_tonne(data):
+    """The All-In note claims the premium cut flips SAF below the carbon price by 2040."""
+    over = data["config"]["references"]["all_in"]["overrides"]
+    y40 = scenario(data, **over).pathway.set_index("year").loc[2040]
+    assert y40["saf_cost_per_tonne"] < y40["carbon_price"]
+
+
+def test_all_in_buys_its_price_decline_rather_than_asserting_it(data):
+    """All-In spends real money up front; the cheaper SAF price is the return on it."""
+    over = dict(data["config"]["references"]["all_in"]["overrides"])
+    assert over["catalytic_pct"] > 0 and "saf_premium" not in over
+    spent = scenario(data, **over).pathway
+    free = scenario(data, **{**over, "catalytic_pct": 0.0}).pathway
+    assert spent.catalytic_investment.sum() > 1e9
+    s40 = spent.set_index("year").loc[2040]
+    f40 = free.set_index("year").loc[2040]
+    assert s40["saf_cost_per_tonne"] < f40["saf_cost_per_tonne"]    # the payoff
+    assert s40["residual_emis"] == pytest.approx(f40["residual_emis"], rel=1e-12)  # no tonnes
+
+
+def test_catalytic_capital_abates_no_tonnes_when_supply_does_not_bind(data):
+    """Unconstrained, this lever still removes zero tonnes — it only makes them cheaper.
+
+    Before the learning curve this was pure dead-weight. It now buys a price decline
+    instead, so the emissions claim survives but the 'pure cost' half of it does not.
+    """
     off, on = scenario(data, catalytic_pct=0.0), scenario(data, catalytic_pct=0.02)
     assert (on.pathway["supply_gap_gal"] == 0).all()           # supply never binds here
     assert on.physical_2040["residual_emis"] == pytest.approx(
-        off.physical_2040["residual_emis"], rel=1e-12)
-    assert on.financial_2040["physical_decarb_spend"] > off.financial_2040["physical_decarb_spend"]
+        off.physical_2040["residual_emis"], rel=1e-12)         # not one tonne abated
     assert on.pathway.set_index("year").loc[2040, "market_capture"] < \
         off.pathway.set_index("year").loc[2040, "market_capture"]
+    assert on.pathway.set_index("year").loc[2040, "saf_cost_per_tonne"] < \
+        off.pathway.set_index("year").loc[2040, "saf_cost_per_tonne"]
 
 
 def test_catalytic_capital_does_abate_when_supply_binds(data):

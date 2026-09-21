@@ -11,7 +11,7 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 import viz  # noqa: E402
-from model import bau_reference, default_inputs, load_data, run_scenario  # noqa: E402
+from model import default_inputs, load_data, reference_pathways, run_scenario  # noqa: E402
 from model.core import LEVER_ORDER  # noqa: E402
 
 st.set_page_config(page_title="Alaska Airlines decarbonization", page_icon="✈️", layout="wide")
@@ -48,7 +48,7 @@ def tile(label, value, sub, state=None):
         unsafe_allow_html=True)
 
 
-def milestone_tiles(m, carbon_price):
+def milestone_tiles(m):
     """The six KPI figures for one milestone year, in the 3x2 grid from the layout spec."""
     rows = [
         [(f"{m['year']} intensity reduction", f"{m['reduction']:.1%}", m["label"], m["state"]),
@@ -57,7 +57,7 @@ def milestone_tiles(m, carbon_price):
         [("Total cost to invest in SAF", money(m["saf_cost"]),
           "net premium after partner support", None),
          ("Total cost to buy carbon offsets", money(m["offset_cost"]),
-          f"at ${carbon_price:,.0f}/t", None)],
+          f"at ${m['carbon_price']:,.0f}/t", None)],
         [("Share of proj. revenue to SAF", f"{m['saf_share_revenue']:.1%}",
           f"of {money(m['revenue'])} revenue", None),
          ("Share of revenue to offsets", f"{m['offset_share_revenue']:.1%}",
@@ -96,31 +96,47 @@ for column, year in ((left, 2030), (right, 2040)):
     with column:
         st.markdown(f"<div style='text-align:center;font-size:1.1rem;font-weight:650;"
                     f"padding-bottom:.45rem'>{year}</div>", unsafe_allow_html=True)
-        milestone_tiles(result.milestones[year], inputs.carbon_price)
+        milestone_tiles(result.milestones[year])
 
 st.markdown("")
-BAU = bau_reference()
-st.plotly_chart(viz.intensity_projection(result.pathway, o30, BAU), width="stretch",
-                config={"displayModeBar": False})
+REFS = reference_pathways()
+picker, _ = st.columns([2, 3])
+with picker:
+    choice = st.segmented_control("Compare against", options=list(REFS), default="bau",
+                                  format_func=lambda k: REFS[k]["label"], key="reference")
+ref = REFS[choice or "bau"]          # segmented_control returns None when deselected
+
+# Gentle left-to-right reveal. The keyframe name carries the reference key, so choosing a
+# different line changes animation-name and the browser replays the sweep. fill-mode stays
+# at its default, so the clip is gone once it lands and never interferes with hover.
+st.markdown(
+    f"<style>@keyframes unfurl-{ref['key']}{{from{{clip-path:inset(0 100% 0 0)}}"
+    f"to{{clip-path:inset(0 0 0 0)}}}}"
+    f".st-key-projection [data-testid='stPlotlyChart']"
+    f"{{animation:unfurl-{ref['key']} 900ms ease-out}}</style>", unsafe_allow_html=True)
+with st.container(key="projection"):
+    st.plotly_chart(viz.intensity_projection(result.pathway, o30, ref), width="stretch",
+                    config={"displayModeBar": False})
+
 need = o30["required_saf_share"]
 st.caption(
-    f"Business as usual — FAA activity and EIA efficiency as published, SAF flat at its "
-    f"2025 share, no fleet, propulsion, ground or catalytic levers — reaches "
-    f"{BAU['reduction_2030']:.1%} by 2030 and {BAU['reduction_2040']:.1%} by 2040, so "
-    f"industry efficiency alone lands below the 10% floor. The gap to the blue line is "
-    f"what Alaska's own levers buy. "
+    f"**{ref['label']}** — {ref['note']} It reaches {ref['reduction_2030']:.1%} by 2030 and "
+    f"{ref['reduction_2040']:.1%} by 2040; the gap to the blue line is what your own sidebar "
+    f"levers buy on top of it. "
     f"2030 effective SAF share {o30['effective_saf_share']:.1%} "
     f"({o30['market_capture']:.1%} of modeled US supply). Hitting 10% needs "
     f"{need['10%']:.1%} SAF, 14% needs {need['14%']:.1%}. Offset cost assumes the full "
-    f"residual is neutralized at ${inputs.carbon_price:,.0f}/t — in the model only 2040 "
-    "closure is actually charged; the 2030 figure is what it would cost today.")
+    f"residual is neutralized at that year's planning price "
+    f"(${result.milestones[2030]['carbon_price']:,.0f}/t in 2030, "
+    f"${p40['carbon_price']:,.0f}/t in 2040) — in the model only 2040 closure is actually "
+    "charged; the 2030 figure is what it would cost today.")
 
 st.divider()
 st.markdown("**2040 — what is left after the physical levers?**")
 st.plotly_chart(viz.abatement_waterfall(p40), width="stretch", config={"displayModeBar": False})
 st.caption(
     f"Physical levers leave {p40['residual_emis']/1e6:,.2f} Mt in 2040; carbon closure "
-    f"neutralizes it at ${inputs.carbon_price:,.0f}/t. Levers are attributed in a fixed "
+    f"neutralizes it at ${p40['carbon_price']:,.0f}/t. Levers are attributed in a fixed "
     f"order ({', '.join(label for _, label in LEVER_ORDER)}), since overlapping levers make "
     "attribution order-dependent.")
 
@@ -160,7 +176,7 @@ with tp:
     crossing = viz._abatement_crossover(result.pathway)
     st.caption(
         f"A tonne abated by SAF costs ${y40['saf_cost_per_tonne']:,.0f} in 2040 against "
-        f"${inputs.carbon_price:,.0f} for a carbon credit — "
+        f"${y40['carbon_price']:,.0f} for a carbon credit — "
         + (f"SAF is the cheaper tonne from {crossing}."
            if crossing else
            f"offsets are cheaper by ${abs(y40['abatement_spread']):,.0f}/t in every modeled year.")
@@ -195,12 +211,13 @@ with t4:
         "Physical decarb spend currently covers the net SAF premium and catalytic capital; "
         "incremental fleet, ground and propulsion capex are **not** modeled, so the spend "
         "side is understated.\n"
-        "- **Catalytic capital only pays off when SAF supply binds.** It adds US capacity "
-        "after a 3-year lag and never discounts the SAF price. If the scenario is not "
-        "already supply-constrained it abates exactly zero tonnes while still costing "
-        "money — it lowers Alaska's share of national supply, which matters for others' "
-        "access, not for Alaska's own emissions. Even where it does bind it runs about "
-        "$1,600/t, against $406/t for SAF and $200/t for offsets.\n"
+        "- **Catalytic capital abates no tonnes unless SAF supply binds — but it does cut "
+        "the price.** It adds US capacity after a 3-year lag, and after the same lag it "
+        "walks the SAF premium down by `catalytic_pct × learning rate` per year, "
+        "compounding. So in an unconstrained scenario it still removes exactly zero "
+        "tonnes; what it buys is a cheaper tonne later. That trade is the whole "
+        "short-term-cost-for-long-term-saving question, and whether it repays depends on "
+        "how fast the carbon price escalates beside it.\n"
         "- **Post-2035 SAF growth of 0% is a stress test, not a neutral default.** It "
         "asserts US production flatlines for five years. ~1%/yr is the conservative floor.\n"
         "- **Ground electrification barely moves the result, and that is real, not a bug.** "

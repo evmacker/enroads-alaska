@@ -111,17 +111,12 @@ def run_scenario(inputs: ScenarioInputs, data: dict) -> ScenarioResult:
 
     # Catalytic capital matures into incremental US SAF capacity after a lag.
     invest, matured, extra_capacity = saf.catalytic_capacity(years, revenue, inputs.catalytic_pct, a)
-    # Wright's law needs cumulative OUTPUT, not cumulative spend: the baseline the US would
-    # have produced anyway, and the increment Alaska's capital adds on top of it.
     supply_base = {y: saf.us_supply(y, inputs.saf_supply_case, inputs.post_2035_growth, a)
                    for y in years}
-    cumulative_invest, cum_baseline, cum_added = {}, {}, {}
-    spend = base_gal = added_gal = 0.0
+    cumulative_invest, spend = {}, 0.0
     for y in years:
         spend += invest[y]
-        base_gal += supply_base[y]
-        added_gal += extra_capacity[y]
-        cumulative_invest[y], cum_baseline[y], cum_added[y] = spend, base_gal, added_gal
+        cumulative_invest[y] = spend
 
     for r in rows:
         y = r["year"]
@@ -145,12 +140,12 @@ def run_scenario(inputs: ScenarioInputs, data: dict) -> ScenarioResult:
         # carbon price escalates as cheap credits are exhausted. Both are inert at their
         # defaults (no investment, no escalation), so the workbook path is unchanged.
         r["cumulative_catalytic"] = cumulative_invest[y]
-        # Alaska captures the price decline only on the share of the market it actually buys.
-        r["catalytic_capture"] = (r["effective_saf_gal"] / r["saf_availability"]
-                                  if r["saf_availability"] else 0.0)
-        r["learning_factor"] = saf.learning_factor(cum_baseline[y], cum_added[y],
-                                                   r["catalytic_capture"], a)
-        premium = inputs.saf_premium * r["learning_factor"]
+        # Capital buys a contractual price on the volume it funded, not a market-wide one.
+        r["funded_capacity_gal"] = extra_capacity[y]
+        r["offtake_share"] = saf.offtake_share(extra_capacity[y], r["effective_saf_gal"])
+        r["offtake_gal"] = r["effective_saf_gal"] * r["offtake_share"]
+        r["learning_factor"] = (1 - r["offtake_share"] * (1 - a["offtake_premium_ratio"]))
+        premium = saf.contracted_premium(inputs.saf_premium, r["offtake_share"], a)
         carbon_price = finance.carbon_price_path(y, inputs.carbon_price,
                                                  inputs.carbon_escalation, BASE_YEAR)
         r["effective_saf_premium"] = premium

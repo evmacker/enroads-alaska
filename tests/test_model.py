@@ -255,40 +255,41 @@ def test_price_levers_scale_saf_cost_per_tonne(data, lever, value, factor):
     assert moved == pytest.approx(base * factor, rel=1e-12)
 
 
-def test_catalytic_capital_walks_the_saf_price_down(data):
-    """The buy-down is real but small: Wright's law on the doublings the money buys."""
+def test_catalytic_capital_buys_a_price_on_the_volume_it_funded(data):
+    """The offtake: capital cuts the premium on contracted gallons, not on the market."""
     off = scenario(data, catalytic_pct=0.0).pathway.set_index("year")
     on = scenario(data, catalytic_pct=0.02).pathway.set_index("year")
-    assert (off["learning_factor"] == 1.0).all()               # inert when nothing is spent
-    assert on["learning_factor"].is_monotonic_decreasing
+    assert (off["offtake_share"] == 0.0).all()                 # inert when nothing is spent
+    assert (off["effective_saf_premium"] == 1.0).all()
+    assert on.loc[2040, "offtake_share"] > 0.2
     assert on.loc[2040, "saf_cost_per_tonne"] < off.loc[2040, "saf_cost_per_tonne"]
 
 
-def test_the_buy_down_is_small_because_the_doublings_are(data):
-    """$5.52B buys ~0.07 doublings of US SAF output, not the ~10 an earlier version implied."""
-    on = scenario(data, catalytic_pct=0.02).pathway.set_index("year")
-    assert on.loc[2040, "learning_factor"] > 0.99              # under 1% off the premium
-    assert on.loc[2040, "cumulative_catalytic"] > 5e9          # having spent over $5B
+def test_the_discount_never_reaches_fuel_alaska_did_not_fund(data):
+    """Blended premium is exactly the volume-weighted mix of contracted and spot."""
+    a, on = data["anchors"], scenario(data, catalytic_pct=0.02).pathway.set_index("year")
+    for year in (2030, 2040):
+        r = on.loc[year]
+        expected = 1.0 * (1 - r["offtake_share"] * (1 - a["offtake_premium_ratio"]))
+        assert r["effective_saf_premium"] == pytest.approx(expected, rel=1e-12)
 
 
-def test_the_premium_floor_holds_at_any_investment(data):
-    """SAF has a cost of production: capital can never drive the premium to zero."""
-    floor = data["anchors"]["saf_premium_floor_ratio"]
+def test_the_offtake_ratio_is_a_structural_floor(data):
+    """Cost-plus still covers cost: no amount of capital drives the premium below it."""
+    ratio = data["anchors"]["offtake_premium_ratio"]
     for pct in (0.02, 0.05):
         p = scenario(data, catalytic_pct=pct).pathway
-        assert (p["learning_factor"] >= floor - 1e-12).all()
-    # and the affine form still returns exactly 1.0 when nothing is spent
-    assert (scenario(data, catalytic_pct=0.0).pathway["learning_factor"] == 1.0).all()
+        assert (p["effective_saf_premium"] >= ratio - 1e-12).all()
+    assert saf_mod.contracted_premium(1.0, 1.0, data["anchors"]) == pytest.approx(ratio)
+    assert saf_mod.contracted_premium(1.0, 0.0, data["anchors"]) == 1.0
 
 
-def test_alaska_captures_only_the_share_of_the_market_it_buys(data):
-    """Capacity built with Alaska's money serves everyone; it cannot book the whole decline."""
-    p = scenario(data, catalytic_pct=0.02).pathway.set_index("year")
-    assert 0 < p.loc[2040, "catalytic_capture"] < 1.0
-    full = saf_mod.learning_factor(1e10, 1e9, 1.0, data["anchors"])
-    part = saf_mod.learning_factor(1e10, 1e9, 0.25, data["anchors"])
-    assert part > full                                          # less captured, less discount
-    assert saf_mod.learning_factor(1e10, 1e9, 0.0, data["anchors"]) == 1.0
+def test_you_cannot_contract_more_than_you_burn(data):
+    """Offtake share is capped at 1.0 however much capacity the capital builds."""
+    assert saf_mod.offtake_share(5e9, 1e9) == 1.0
+    assert saf_mod.offtake_share(0.0, 1e9) == 0.0
+    assert saf_mod.offtake_share(1e9, 0.0) == 0.0
+    assert (scenario(data, catalytic_pct=0.05).pathway["offtake_share"] <= 1.0).all()
 
 
 def test_carbon_price_escalates_from_its_default(data):
@@ -429,15 +430,34 @@ def test_conservative_is_cheaper_to_reach_2030(data):
 
 
 def test_conservative_is_also_cheaper_by_2040(data):
-    """Second half FAILS. Corrected, the early spend never repays.
+    """Second half FAILS. Even with the offtake discount, the early spend never repays.
 
-    It repaid only while the buy-down was ~146x too strong and Alaska booked 100% of a
-    price decline it had funded a quarter of. On Wright's law, scaled to what Alaska
-    actually buys, All-In stays more expensive to the end of the horizon.
+    It repaid only while catalytic capital was modeled as moving the whole national SAF
+    price and Alaska kept all of the benefit. Priced as what it really is - a contractual
+    discount on the volume Alaska funded - it returns about a quarter of its outlay in
+    premium savings, which narrows the gap without closing it.
     """
     cons, allin = _annual(data, "conservative").sum(), _annual(data, "all_in").sum()
     assert allin > cons
-    assert (allin - cons) / cons > 0.05
+
+
+def test_the_offtake_saves_real_money_and_still_does_not_pay_for_itself(data):
+    """The honest shape of the CVC bet, and the reason it reads as a cost.
+
+    The discount is worth about a quarter of the outlay in premium savings. The model
+    charges the whole outlay as expense and books no asset against it - there is no
+    balance sheet here - so deploying capital still raises total cost even though the
+    price it buys is real.
+    """
+    import dataclasses as dc
+    allin = preset_inputs("all_in", data)
+    on = run_scenario(allin, data).pathway
+    off = run_scenario(dc.replace(allin, catalytic_pct=0.0), data).pathway
+    saved = off["net_saf_premium"].sum() - on["net_saf_premium"].sum()
+    spent = on["catalytic_investment"].sum()
+    assert saved > 1e9                             # over a billion off the premium leg
+    assert 0.15 < saved / spent < 0.40             # but only a fraction of the outlay
+    assert on["annual_cost"].sum() > off["annual_cost"].sum()
 
 
 def test_all_in_buys_far_more_abatement_per_dollar(data):

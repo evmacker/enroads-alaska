@@ -236,11 +236,23 @@ model reported that All-In won by $6.48B. That finding was an artifact of two de
 
 1. **The buy-down was ~146× too strong.** It used an exponent of dollars/$50M. On the
    standard Wright's-law basis, Alaska's $5.52B buys **0.072 extra doublings** of
-   cumulative US SAF output (1.95B gal added to a 37.99B gal baseline) — a premium
-   multiplier of ~0.99, against the 0.33 the old formula produced.
+   cumulative US SAF output — a premium multiplier of ~0.99, against the 0.33 the old
+   formula produced.
 2. **Alaska booked 100% of a price decline it funded a quarter of.** Capacity built with
-   its money serves the whole market. The discount is now scaled by the share Alaska
-   actually buys.
+   its money serves the whole market.
+
+Together those made catalytic capital worth **0.1%** off the premium — which is the
+correct answer to the question that mechanism was asking, and the wrong question. A single
+airline taking ~5% of US jet fuel cannot buy down a national commodity price. Catalytic
+capital is therefore modeled as what it actually is: **a bilateral offtake**. Funding a
+producer buys a cost-plus price on *your contracted volume* (`offtake_premium_ratio: 0.70`,
+a 30% discount on the premium) while everything else still pays spot. The benefit is
+volume-bound, never reaches fuel Alaska did not fund, and is structurally floored because
+cost-plus still covers cost.
+
+That mechanism is worth real money — All-In contracts 24% of its 2040 SAF and saves
+**$1.30B**, about a quarter of its $5.52B outlay — and it still does not make All-In
+cheaper overall.
 
 | | Conservative | All-In |
 |---|---|---|
@@ -248,24 +260,30 @@ model reported that All-In won by $6.48B. That finding was an artifact of two de
 | 2040 intensity reduction | 20.8% | 78.2% |
 | 2040 residual | 12.65 Mt | 3.52 Mt |
 | 2040 SAF price | $406/t | $324/t |
-| **Cumulative to 2030** | **$14.44B** | $16.07B |
-| **Cumulative to 2040** | **$50.86B** | $53.95B |
+| **Cumulative to 2030** | **$14.44B** | $16.00B |
+| **Cumulative to 2040** | **$50.86B** | $52.66B |
 | Cumulative abatement vs BAU | 6.58 Mt | **65.35 Mt** |
-| **Cost per tonne actually abated** | $456/t | **$353/t** |
+| **Cost per tonne actually abated** | $456/t | **$333/t** |
 
-Conservative is cheaper at both dates — $1.63B ahead in 2030 and still $3.09B ahead in
-2040. Delay is simply cheaper in this model, and no defensible learning rate changes that:
-5%, 10%, 20% and 30% all land within $0.25B of each other, because it is the doublings
-term that governs, not the rate.
+Conservative is cheaper at both dates — $1.56B ahead in 2030 and still $1.80B ahead in
+2040. Delay is simply cheaper in this model, and the offtake narrows that gap without
+closing it.
+
+**One caveat that cuts the other way, and the model cannot express it.** There is no
+balance sheet here: the full $5.52B of catalytic capital is expensed, and no asset is
+booked against the capacity it bought. In reality that spend buys equity in operating
+plants with residual value and an ongoing claim on output. So the CVC leg is charged at
+full cost and credited only with the fuel discount it produces. Read $52.66B as an upper
+bound on All-In's cost, not a settled figure.
 
 ### What survives, and what the tool should lead with
 
 The cost comparison was never the strongest argument for acting early, and it is not the
 one to make. This is:
 
-> All-In keeps **65.35 Mt** out of the air for **$23.07B** of abatement spend — **$353 per
+> All-In keeps **65.35 Mt** out of the air for **$21.77B** of abatement spend — **$333 per
 > tonne**. Conservative keeps **6.58 Mt** for **$3.00B** — **$456 per tonne**. Ten times
-> the abatement, at a fifth less per tonne.
+> the abatement, at 27% less per tonne.
 
 That statement needs no carbon price, no escalation rate and no discounting, so no framing
 choice can manufacture or destroy it. The app now leads with it. The honest summary of

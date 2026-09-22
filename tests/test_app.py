@@ -24,10 +24,10 @@ def run(overrides=None):
 
 def test_app_renders_with_defaults():
     at = run()
-    assert len(at.slider) == 16 and len(at.selectbox) == 0   # 16 visible scenario controls
+    assert len(at.slider) == 15 and len(at.selectbox) == 0   # 15 visible scenario controls
     # visible:false inputs render no widget at all; the engine still gets their config default.
     labels = [w.label for w in list(at.slider) + list(at.selectbox)]
-    assert "Investable cash (% revenue)" in labels    # unhidden: it drives a live verdict
+    assert "Investable cash (% revenue)" not in labels  # hidden: no KPI on the page uses it
     assert not any("supply case" in x for x in labels)
     assert "Carbon planning price ($/t)" in labels
     assert len(at.button_group) == 1 and len(at.button_group[0].options) == 3

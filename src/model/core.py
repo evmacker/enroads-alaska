@@ -26,7 +26,6 @@ class ScenarioInputs:
     carbon_price: float
     carbon_escalation: float
     catalytic_pct: float
-    investable_pct: float
     activity_adj: float
     efficiency_adj: float
     saf_supply_case: str
@@ -114,11 +113,6 @@ def run_scenario(inputs: ScenarioInputs, data: dict) -> ScenarioResult:
     invest, matured, extra_capacity = saf.catalytic_capacity(years, revenue, inputs.catalytic_pct, a)
     supply_base = {y: saf.us_supply(y, inputs.saf_supply_case, inputs.post_2035_growth, a)
                    for y in years}
-    cumulative_invest, spend = {}, 0.0
-    for y in years:
-        spend += invest[y]
-        cumulative_invest[y] = spend
-
     for r in rows:
         y = r["year"]
         r["revenue"] = revenue[y]
@@ -140,12 +134,10 @@ def run_scenario(inputs: ScenarioInputs, data: dict) -> ScenarioResult:
         # Two prices moving apart: the SAF premium falls with market-wide learning (and,
         # on funded volume, with catalytic capital), while the carbon price escalates as
         # cheap credits are exhausted. All are inert at the workbook's inputs.
-        r["cumulative_catalytic"] = cumulative_invest[y]
         # Capital buys a contractual price on the volume it funded, not a market-wide one.
         r["funded_capacity_gal"] = extra_capacity[y]
         r["offtake_share"] = saf.offtake_share(extra_capacity[y], r["effective_saf_gal"])
         r["offtake_gal"] = r["effective_saf_gal"] * r["offtake_share"]
-        r["learning_factor"] = (1 - r["offtake_share"] * (1 - a["offtake_premium_ratio"]))
         r["market_saf_premium"] = finance.saf_premium_path(y, inputs.saf_premium,
                                                            inputs.saf_premium_decline, BASE_YEAR)
         premium = saf.contracted_premium(r["market_saf_premium"], r["offtake_share"], a)
@@ -175,13 +167,10 @@ def run_scenario(inputs: ScenarioInputs, data: dict) -> ScenarioResult:
             carbon_price, r["jet_price"], inputs.partner_share,
             data["tonnes_avoided_per_saf_gallon"])
         r["physical_decarb_spend"] = r["net_saf_premium"] + r["catalytic_investment"]
-        r.update(finance.headroom(r["revenue"], inputs.investable_pct,
-                                  r["physical_decarb_spend"], r["closure_cost"]))
         r["saf_cost_share_revenue"] = r["net_saf_premium"] / r["revenue"]
         # What this year actually costs: premium borne, capital deployed, residual bought.
         r["annual_cost"] = (r["net_saf_premium"] + r["catalytic_investment"]
                             + r["offset_cost"])
-        r["annual_cost_share_revenue"] = r["annual_cost"] / r["revenue"]
 
     pathway = pd.DataFrame(rows)
     y30, y40 = (pathway.set_index("year").loc[y].to_dict() for y in (TARGET_YEAR, NETZERO_YEAR))
@@ -207,14 +196,9 @@ def run_scenario(inputs: ScenarioInputs, data: dict) -> ScenarioResult:
     )
 
     financial_2040 = dict(
-        revenue=y40["revenue"], investable_pool=y40["investable_pool"],
-        physical_decarb_spend=y40["physical_decarb_spend"],
+        revenue=y40["revenue"], physical_decarb_spend=y40["physical_decarb_spend"],
         net_saf_premium=y40["net_saf_premium"], catalytic_investment=y40["catalytic_investment"],
-        carbon_closure_cost=y40["closure_cost"],
-        cash_available_for_closure=y40["cash_available_for_closure"],
-        closure_coverage=y40["closure_coverage"], cash_headroom=y40["cash_headroom"],
-        partner_contribution=y40["partner_contribution"],
-        **targets.classify_2040_finance(y40["cash_headroom"]))
+        carbon_closure_cost=y40["closure_cost"], partner_contribution=y40["partner_contribution"])
 
     base_residual = pathway.set_index("year").loc[BASE_YEAR, "residual_emis"]
     milestones = {year: _milestone(row, band, year, base_residual)

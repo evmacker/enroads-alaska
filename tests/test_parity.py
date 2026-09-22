@@ -97,7 +97,7 @@ def test_workbook_input_set_is_complete():
     fixed = set(WORKBOOK_INPUTS)
     free = {f.name for f in dataclasses.fields(default_inputs(data))} - fixed
     # Only inputs with no workbook counterpart may be left to the config default.
-    assert free == {"investable_pct", "removal_growth"}, free
+    assert free == {"removal_growth"}, free
 
 
 @pytest.mark.parametrize("year", range(2025, 2041))

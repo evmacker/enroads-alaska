@@ -44,9 +44,6 @@ holds, narrowly: Conservative is $1.52B cheaper to 2030, All-In $0.92B cheaper t
 the abatement comparison: All-In keeps 65.4 Mt out of the air at $283/t against
 Conservative's 6.6 Mt at $371/t — ten times the abatement, 24% less per tonne.
 
-The investable-cash headroom KPI and its budget-bar chart are still in the engine
-(`financial_2040`) and in `src/viz.py::budget_bar`, but are not currently on the page.
-
 ## Layout
 
 ```
@@ -57,7 +54,7 @@ config/assumptions.yaml  defaults, bounds, labels, citations
 src/model/core.py    run_scenario(inputs, data) -> ScenarioResult
 src/model/emissions.py  intensity and residual emissions
 src/model/saf.py     supply anchors, market capture, catalytic capital
-src/model/finance.py revenue, SAF premium, closure cost, investable-cash headroom
+src/model/finance.py SAF premium, carbon price, closure cost
 src/model/targets.py outcome classification — the only place target logic lives
 src/viz.py           chart builders
 app.py               Streamlit UI only
@@ -83,7 +80,7 @@ The two HTML documents are standalone — open them in a browser, they are not p
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest tests -q      # 121 tests
+python -m pytest tests -q      # 115 tests
 ```
 
 `tests/test_parity.py` reproduces every column of the workbook's `Model` sheet for every

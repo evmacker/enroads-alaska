@@ -1,4 +1,4 @@
-"""Revenue anchor, SAF premium, carbon closure cost, investable-cash headroom."""
+"""SAF premium, carbon price path, closure cost and the per-tonne comparison."""
 
 
 def fuel_costs(liquid_gal, saf_gal, jet_price, premium, partner_share):
@@ -57,19 +57,9 @@ def carbon_supply(year, observed_volume, observed_year, growth):
     """Durable removal supply grown from its one observed volume.
 
     There is no published forward anchor for this market the way there is for SAF, so
-    growth is an explicit user input defaulting to 0% rather than a fitted trend.
+    growth is an explicit user input (default 20%/yr) rather than a fitted trend.
     """
     if year <= observed_year:
         return observed_volume
     return observed_volume * (1 + growth) ** (year - observed_year)
 
-
-def headroom(revenue, investable_pct, physical_spend, closure):
-    """Can the modeled pathway be funded from the stated investable-cash budget?"""
-    pool = revenue * investable_pct
-    available = max(0.0, pool - physical_spend)
-    return dict(investable_pool=pool, physical_decarb_spend=physical_spend,
-                carbon_closure_cost=closure,
-                cash_available_for_closure=available,
-                closure_coverage=(available / closure) if closure > 0 else float("inf"),
-                cash_headroom=((pool - physical_spend - closure) / pool) if pool > 0 else float("-inf"))

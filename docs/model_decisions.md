@@ -72,13 +72,13 @@ in a separate `offset_cost` field so the two never get confused.
 
 **Carbon market supply (new, presentational only).** Alaska's annual offset demand is
 charted against the durable removal market, grown from its one observed volume
-(1.88 Mt, Puro CORCX, Aug/Sep 2026) at an explicit user rate defaulting to 0%. There is
+(1.88 Mt, Puro CORCX, Aug/Sep 2026) at an explicit user rate (default 20%/yr). There is
 no published forward anchor for this market the way there is for SAF, so nothing is
 fitted — the same reasoning that keeps SAF supply on published anchors rather than a
 trend line. Carbon supply **never constrains the model**; it cannot change emissions or
 cost, and a test enforces that. For scale, the whole voluntary market retired 202 Mt in
-2025, so Alaska's 2040 residual alone is roughly 3.5% of it and about 3.8× the entire
-observed durable removal market.
+2025, but Alaska's 2025 residual (10.5 Mt) is 5.6× the entire observed durable removal market.
+At 20%/yr growth that market reaches 24 Mt by 2040.
 
 **Marginal abatement cost (new).** What a tonne costs, two ways:
 
@@ -177,16 +177,17 @@ So All-In states its assumptions rather than solving for them, and moves the thr
 zero-cost levers only marginally, precisely because maxing a free lever flatters the
 result.
 
-### Two new price mechanisms (NEW, not in the workbook)
+### New price mechanisms (NEW, not in the workbook)
 
-The workbook has one flat carbon price and no link between investment and cost. Two
-mechanisms were added so "invest early, save later" is expressible at all. Both are inert
-at their defaults, which is what keeps `tests/test_parity.py` passing.
+The workbook has one flat carbon price, a flat SAF premium and no link between investment
+and cost. These mechanisms make "invest early, save later" expressible. All are inert at
+the workbook's inputs, which is what keeps `tests/test_parity.py` passing.
+(The catalytic row below is historical; it is now the offtake discount described later.)
 
 | Mechanism | Where | Effect |
 |---|---|---|
 | Catalytic buy-down | `saf.learning_factor()` | `SAF premium(t) = market premium(t) × (1 − r) ^ (cumulative CVC(t) / tranche)`, with `r` = 1% per $50M tranche deployed. Returns exactly 1.0 when nothing is invested |
-| Carbon escalation | `finance.carbon_price_path()`, input `carbon_escalation` | The planning price grows in real terms as the cheapest credits are exhausted. Default 0% reproduces the workbook's single flat price |
+| Carbon escalation | `finance.carbon_price_path()`, input `carbon_escalation` | The planning price grows in real terms as the cheapest credits are exhausted. Default 3.3%/yr; 0% reproduces the workbook's single flat price |
 
 **The exponent is money deployed, not years elapsed.** That is the point: the discount is
 negligible while little has been spent and compounds as capital accumulates, so catalytic

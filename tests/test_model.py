@@ -6,7 +6,7 @@ import pytest
 from model import (bau_reference, load_data, default_inputs, preset_inputs,
                    preset_scenarios, run_scenario)
 from model import saf as saf_mod
-from model.targets import classify_2030, classify_2040_finance
+from model.targets import classify_2030
 
 
 @pytest.fixture(scope="module")
@@ -102,26 +102,11 @@ def test_physical_residual_is_not_zero_without_closure(data):
 
 # --- finance ------------------------------------------------------------------
 
-def test_headroom_identity(data):
-    f = scenario(data, investable_pct=0.05).financial_2040
-    assert f["cash_headroom"] == pytest.approx(
-        (f["investable_pool"] - f["physical_decarb_spend"] - f["carbon_closure_cost"])
-        / f["investable_pool"], rel=1e-12)
-    assert f["investable_pool"] == pytest.approx(f["revenue"] * 0.05, rel=1e-12)
-
-
-def test_bigger_budget_buys_headroom(data):
-    headrooms = [scenario(data, investable_pct=p).financial_2040["cash_headroom"]
-                 for p in (0.02, 0.05, 0.10)]
-    assert headrooms == sorted(headrooms)
-
-
 def test_partner_support_shifts_cost_without_changing_physics(data):
     plain, helped = scenario(data), scenario(data, partner_share=0.5)
     assert helped.physical_2040["residual_emis"] == pytest.approx(
         plain.physical_2040["residual_emis"], rel=1e-12)
     assert helped.financial_2040["net_saf_premium"] < plain.financial_2040["net_saf_premium"]
-    assert helped.financial_2040["cash_headroom"] > plain.financial_2040["cash_headroom"]
 
 
 def test_carbon_price_scales_closure_cost_linearly(data):
@@ -133,18 +118,6 @@ def test_closure_cost_is_charged_in_2040_only(data):
     pathway = scenario(data).pathway.set_index("year")
     assert (pathway.loc[2025:2039, "closure_cost"] == 0).all()
     assert pathway.loc[2040, "closure_cost"] > 0
-
-
-@pytest.mark.parametrize("headroom, state", [(0.25, "comfortable"), (0.05, "tight"), (-0.3, "infeasible")])
-def test_financial_states(headroom, state):
-    assert classify_2040_finance(headroom)["state"] == state
-
-
-def test_default_scenario_is_unaffordable_on_the_default_budget(data):
-    """Documents the headline finding: the default pathway costs far more than 3% of revenue."""
-    f = scenario(data).financial_2040
-    assert f["state"] == "infeasible"
-    assert f["cash_available_for_closure"] == 0.0
 
 
 def test_model_is_deterministic(data):

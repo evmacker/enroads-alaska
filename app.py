@@ -137,7 +137,7 @@ with picker:
                                   on_change=_strategy_picked)
 scn = SCENARIOS[choice or "custom"]     # segmented_control returns None when deselected
 inputs, result = scn["inputs"], scn["result"]
-o30, p40, f40 = result.outcome_2030, result.physical_2040, result.financial_2040
+o30, p40 = result.outcome_2030, result.physical_2040
 
 left, right = st.columns(2, gap="medium")
 for column, year in ((left, 2030), (right, 2040)):
@@ -268,7 +268,7 @@ with t3:
             "saf_availability", "market_capture", "intensity", "reduction_vs_2019",
             "residual_emis", "revenue", "net_saf_premium", "offset_cost", "carbon_supply",
             "saf_cost_per_tonne", "abatement_spread", "breakeven_premium",
-            "investable_pool", "closure_cost"]
+            "closure_cost"]
     st.dataframe(result.pathway[cols], width="stretch", hide_index=True, height=440)
     st.download_button("Download pathway CSV", result.pathway.to_csv(index=False),
                        "alaska_pathway.csv", "text/csv")
@@ -279,10 +279,11 @@ with t4:
         "- **2040 physical residual** is what remains after efficiency, fleet, SAF, "
         "electrification and propulsion. Carbon closure — residual × planning price × "
         "neutralization share — is what takes it to zero.\n"
-        "- **Investable cash** is an explicit budget assumption, not observed free cash flow. "
-        "Physical decarb spend currently covers the net SAF premium and catalytic capital; "
-        "incremental fleet, ground and propulsion capex are **not** modeled, so the spend "
-        "side is understated.\n"
+        "- **The SAF premium falls 2%/yr by default** with market-wide learning, on top of any "
+        "catalytic discount. At 0% the workbook's flat premium returns and Conservative is "
+        "cheaper to 2040 as well as to 2030.\n"
+        "- **Spend is understated.** It covers the net SAF premium and catalytic capital; "
+        "fleet, ground and propulsion capex are **not** modeled.\n"
         "- **Catalytic capital buys a contract, not a market price.** It funds capacity "
         "that comes online after a 3-year lag, and Alaska then prices that volume "
         "cost-plus while the rest of its SAF pays spot — so the discount is bounded by "

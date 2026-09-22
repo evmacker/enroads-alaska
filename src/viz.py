@@ -10,10 +10,8 @@ SERIES = {"blue": "#2a78d6", "orange": "#eb6834", "aqua": "#1baf7a"}
 STATUS = {"good": "#0ca30c", "warning": "#fab219", "serious": "#ec835a", "critical": "#d03b3b"}
 INK, MUTED, GRID, BAND, SURFACE = "#0b0b0b", "#52514e", "#e6e5e1", "#cde2fb", "#fcfcfb"
 
-STATE_COLOR = {"below": STATUS["critical"], "meets": STATUS["good"], "exceeds": SERIES["blue"],
-               "infeasible": STATUS["critical"], "tight": STATUS["warning"], "comfortable": STATUS["good"]}
-STATE_ICON = {"below": "✕", "meets": "✓", "exceeds": "▲",
-              "infeasible": "✕", "tight": "!", "comfortable": "✓"}
+STATE_COLOR = {"below": STATUS["critical"], "meets": STATUS["good"], "exceeds": SERIES["blue"]}
+STATE_ICON = {"below": "✕", "meets": "✓", "exceeds": "▲"}
 
 MT, BN = 1e6, 1e9
 
@@ -97,26 +95,6 @@ def abatement_waterfall(physical):
     fig.update_xaxes(tickangle=-25, tickfont=dict(size=11))
     fig.update_yaxes(range=[0, ab["baseline"] / MT * 1.12])   # headroom for outside labels
     return _frame(fig, 340, ytitle="MtCO2e in 2040", legend=True)
-
-
-def budget_bar(fin):
-    """2040 spend against the investable-cash pool."""
-    pool = fin["investable_pool"] / BN
-    parts = [("Physical decarb spend", fin["physical_decarb_spend"] / BN, SERIES["blue"]),
-             ("Carbon closure", fin["carbon_closure_cost"] / BN, SERIES["orange"])]
-    fig = go.Figure()
-    for name, value, colour in parts:
-        fig.add_trace(go.Bar(
-            x=[value], y=[""], name=name, orientation="h", width=0.34,
-            marker=dict(color=colour, line=dict(color=SURFACE, width=2)),
-            hovertemplate=f"{name}: $%{{x:.2f}}B<extra></extra>"))
-    fig.add_vline(x=pool, line=dict(color=INK, width=2, dash="dot"),
-                  annotation_text=f"investable cash ${pool:,.2f}B", annotation_position="bottom right",
-                  annotation_font=dict(color=INK, size=12))
-    fig.update_layout(barmode="stack")
-    fig.update_xaxes(tickprefix="$", ticksuffix="B", tickformat=".1f", rangemode="tozero")
-    fig.update_yaxes(showgrid=False)
-    return _frame(fig, 185, legend=True)
 
 
 def saf_supply_chart(pathway, history):

@@ -17,11 +17,3 @@ def classify_2030(reduction, band=BAND):
         return dict(state="meets", label=f"Meets target ({reduction:.1%}, inside {low:.0%}-{high:.0%})")
     return dict(state="exceeds", label=f"Exceeds upper target ({reduction:.1%} vs {high:.0%})")
 
-
-def classify_2040_finance(cash_headroom):
-    """Feasible when the pathway fits inside the modeled investable-cash budget."""
-    if cash_headroom >= 0.20:
-        return dict(state="comfortable", label=f"Funded with {cash_headroom:.0%} budget left")
-    if cash_headroom >= 0:
-        return dict(state="tight", label=f"Just funded — {cash_headroom:.0%} budget left")
-    return dict(state="infeasible", label=f"Over budget by {abs(cash_headroom):.0%}")

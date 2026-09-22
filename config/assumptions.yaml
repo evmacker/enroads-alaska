@@ -15,24 +15,24 @@ inputs:
   fleet_renewal:    {default: 0.00, min: 0.0,  max: 1.00, step: 0.05, label: "Fleet renewal by 2040", help: "Incremental beyond the EIA efficiency baseline. 0% avoids double counting.", fmt: "pct", group: "Operations"}
   ground_elec:      {default: 0.00, min: 0.0,  max: 1.00, step: 0.05, label: "Ground electrification by 2040", help: "Share of Scope 1 vehicle emissions removed. Ceiling is small by construction: ground vehicles are 0.28% of the 2040 operational residual, so even 100% electrification removes ~20k t (~$4M at $200/t). Included for completeness, not leverage.", fmt: "pct", group: "Operations"}
   novel_propulsion: {default: 0.00, min: 0.0,  max: 0.50, step: 0.05, label: "Novel propulsion by 2040", help: "Zero-carbon propulsion proxy displacing liquid-fuel activity.", fmt: "pct", group: "Operations"}
-  catalytic_pct:    {default: 0.00, min: 0.0,  max: 0.05, step: 0.005, label: "Catalytic capital (% revenue)", help: "Strategic investment that adds US SAF capacity after a 3-year lag. Supply effect only, and supply only affects emissions when it BINDS - if the scenario is not already supply-constrained, this spends money and abates nothing. Check the SAF supply tab for a non-zero gap before spending here.", fmt: "pct", group: "Money"}
-  investable_pct:   {default: 0.05, min: 0.01, max: 0.30, step: 0.01,  label: "Investable cash (% revenue)", help: "Explicit budget assumption. 2025 OCF/revenue was 8.4%; OCF also funds normal capex, debt service and working capital, so only part is investable here. 5% is ~60% of OCF. The range reaches 30% because the default pathway does not break even until ~19.6% - at the old 10% ceiling the verdict could only ever read over budget.", fmt: "pct", group: "Money"}
+  catalytic_pct:    {default: 0.00, min: 0.0,  max: 0.05, step: 0.005, label: "Catalytic capital (% revenue)", help: "Capital that funds SAF capacity after a 3-year lag. Alaska prices that volume at a 30% offtake discount; the rest of its SAF pays market. Adds tonnes only if supply binds. Booked as pure expense - no equity asset is recorded.", fmt: "pct", group: "Money"}
   activity_adj:     {default: 0.00, min: -0.03, max: 0.03, step: 0.005, label: "Activity vs FAA (%/yr)", help: "0% = FAA system ASM baseline.", fmt: "pct", group: "Baselines"}
   efficiency_adj:   {default: 0.00, min: -0.02, max: 0.02, step: 0.005, label: "Efficiency vs EIA (%/yr)", help: "0% = EIA aircraft-efficiency baseline.", fmt: "pct", group: "Baselines"}
   saf_supply_case:  {default: "Base", options: ["Base", "Conservative"], label: "US SAF supply case", help: "Base = Rystad 190k bpd 2035; Conservative = 110k bpd.", fmt: "choice", group: "Baselines", visible: false}
   post_2035_growth: {default: 0.073, min: 0.0, max: 0.20, step: 0.001, label: "Post-2035 SAF growth (%/yr)", help: "Growth after the last published 2035 anchor. 7.3% is the anchors' own last segment (2.049B gal 2030 to 2.913B gal 2035) continued - a rule rather than a number. The former 10% default was an unsourced ACCELERATION past the last anchor, which flattered the model by shrinking Alaska's required share of US supply. 0% is a stress-test floor, not a neutral choice.", fmt: "pct", group: "Baselines"}
-  carbon_price:     {default: 200,  min: 25,   max: 500,  step: 25,   label: "Carbon planning price ($/t)", help: "Single planning price on modeled 2040 residual. CORSIA midpoint reference is $59/t; durable removal benchmark is $200/t.", fmt: "usd", group: "Baselines"}
+  carbon_price:     {default: 200,  min: 25,   max: 500,  step: 25,   label: "Carbon planning price ($/t)", help: "2025 price per tonne of residual, escalating by the rate below. CORSIA midpoint reference is $59/t; durable removal benchmark is $200/t.", fmt: "usd", group: "Baselines"}
   carbon_escalation: {default: 0.033, min: 0.0, max: 0.10, step: 0.001, label: "Carbon price escalation (%/yr)", help: "Real growth in the carbon planning price as cheap credits are exhausted. 3.3%/yr is IEA NZE (advanced-economy CO2 ~$130/t 2030 to $250/t 2050 = 3.32%/yr) and is corroborated by EU ETS (EUR 82.5/t Aug 2026 to ~EUR 130 by 2040 = 3.35%/yr). World Bank implies 2.3%, NGFS NZ2050 6.8%. 0% reproduces the workbook's single flat price and is a parity fixture, not a forecast.", fmt: "pct", group: "Baselines"}
   removal_growth:   {default: 0.20, min: 0.0,  max: 0.60, step: 0.01, label: "Durable removal market growth (%/yr)", help: "Growth of the durable carbon removal market from its observed Aug/Sep 2026 volume. There is still no published forward supply anchor, so this remains yours to set - but 0% is not the neutral choice it looks like, it asserts the market stays frozen for fourteen years. 20%/yr is roughly a SEVENTH of the observed 151%/yr delivery CAGR excluding Microsoft and Frontier, i.e. deliberately pessimistic. Presentational only - it never constrains the model.", fmt: "pct", group: "Baselines"}
 
-# Reference pathways for the projection chart's three-way toggle.
+# The strategies behind the Conservative / All-In / Custom toggle.
 #
 # NOT workbook data. Every value under `overrides` is a scenario assumption asserted
 # from OUTSIDE Alaska_Airlines_Model_Revenue_Anchored_v3.xlsx, agreed in session on
 # 2026-09-21. They live here, beside the inputs they set, so the chart's claims stay
 # auditable rather than buried in chart code. Keys are ScenarioInputs fields; anything
-# unlisted keeps its default above. BAU and Conservative carry no overrides because
-# both are derived - see core.bau_reference() and core._conservative_saf_ramp().
+# unlisted keeps its default above. The price assumptions are pinned explicitly so each
+# preset states them. Conservative's SAF shares and the fixed BAU line are derived - see
+# core._conservative_saf_ramp() and core.bau_reference().
 references:
   custom:
     label: "Custom"
@@ -52,13 +52,14 @@ references:
       to 2040. No catalytic capital at all: nothing is spent ahead of the curve, so the
       SAF premium falls only with the market and the 2040 residual stays large.
     overrides:
+      saf_premium_decline: 0.02
       carbon_escalation: 0.033
   all_in:
     label: "All-In"
     note: >-
       Optimised for 2040 rather than 2030. Deploys 2% of revenue as catalytic venture
-      capital from the start, buying down the SAF premium as the spend accumulates, while
-      partners carry 20% of what is left. It pays years before it saves, which is the whole
+      capital from the start, which buys SAF capacity priced at a 30% offtake discount once
+      it comes online, while partners carry 20% of the premium. It pays years before it saves, which is the whole
       bet. Fleet, ground and propulsion move only marginally because their capex is not
       modeled and maxing free levers would flatter the result.
     overrides:
@@ -69,22 +70,16 @@ references:
       fleet_renewal: 0.20
       ground_elec: 0.25
       novel_propulsion: 0.05
+      saf_premium_decline: 0.02
       carbon_escalation: 0.033
 
 # Backend anchors. Not user-editable.
 anchors:
   saf_lifecycle_reduction: 0.80      # Alaska: SAF can cut lifecycle emissions up to ~80%
   fleet_fuel_advantage: 0.20         # newer aircraft ~15-25% more efficient per seat; midpoint proxy
-  neutralization_share: 1.00         # share of 2040 residual neutralized
+  neutralization_share: 1.00         # share of each year's residual priced as offsets
   saf_capital_intensity: 14.6666666667  # $ per annual gallon of capacity (DOE: >$44B for >3B gal/yr)
   catalytic_lag_years: 3
-  # NEW, not from the workbook. Catalytic venture capital buys down the SAF premium:
-  #   SAF premium(t) = market premium(t) * (1 - r) ** (cumulative CVC(t) / reference spend)
-  # So the discount is driven by money actually deployed, not by elapsed time: it is
-  # nothing in the early years and compounds as the spend accumulates. It touches the SAF
-  # premium only - Alaska funding SAF capacity is no reason for the global carbon credit
-  # price to fall, and discounting both by one factor could never change which tonne is
-  # cheaper. Exactly 1.0 when nothing is invested, which is what keeps workbook parity.
   # NEW, not from the workbook. What a cost-plus offtake pays as a fraction of the market
   # premium, on the volume Alaska's own capital funded. Everything else pays spot.
   # 0.70 = a 30% discount on the premium: an offtake strips trading margin and spot

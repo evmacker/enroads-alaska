@@ -111,17 +111,23 @@ def run_scenario(inputs: ScenarioInputs, data: dict) -> ScenarioResult:
 
     # Catalytic capital matures into incremental US SAF capacity after a lag.
     invest, matured, extra_capacity = saf.catalytic_capacity(years, revenue, inputs.catalytic_pct, a)
-    # Premium buy-down tracks money deployed to date, so it lags the spending naturally.
-    cumulative_invest, running = {}, 0.0
+    # Wright's law needs cumulative OUTPUT, not cumulative spend: the baseline the US would
+    # have produced anyway, and the increment Alaska's capital adds on top of it.
+    supply_base = {y: saf.us_supply(y, inputs.saf_supply_case, inputs.post_2035_growth, a)
+                   for y in years}
+    cumulative_invest, cum_baseline, cum_added = {}, {}, {}
+    spend = base_gal = added_gal = 0.0
     for y in years:
-        running += invest[y]
-        cumulative_invest[y] = running
+        spend += invest[y]
+        base_gal += supply_base[y]
+        added_gal += extra_capacity[y]
+        cumulative_invest[y], cum_baseline[y], cum_added[y] = spend, base_gal, added_gal
 
     for r in rows:
         y = r["year"]
         r["revenue"] = revenue[y]
         r["catalytic_investment"] = invest[y]
-        r["us_supply_base"] = saf.us_supply(y, inputs.saf_supply_case, inputs.post_2035_growth, a)
+        r["us_supply_base"] = supply_base[y]
         r["saf_availability"] = r["us_supply_base"] + extra_capacity[y]
 
         r["target_saf_share"] = emissions.target_saf_share(
@@ -139,7 +145,11 @@ def run_scenario(inputs: ScenarioInputs, data: dict) -> ScenarioResult:
         # carbon price escalates as cheap credits are exhausted. Both are inert at their
         # defaults (no investment, no escalation), so the workbook path is unchanged.
         r["cumulative_catalytic"] = cumulative_invest[y]
-        r["learning_factor"] = saf.learning_factor(cumulative_invest[y], a)
+        # Alaska captures the price decline only on the share of the market it actually buys.
+        r["catalytic_capture"] = (r["effective_saf_gal"] / r["saf_availability"]
+                                  if r["saf_availability"] else 0.0)
+        r["learning_factor"] = saf.learning_factor(cum_baseline[y], cum_added[y],
+                                                   r["catalytic_capture"], a)
         premium = inputs.saf_premium * r["learning_factor"]
         carbon_price = finance.carbon_price_path(y, inputs.carbon_price,
                                                  inputs.carbon_escalation, BASE_YEAR)
@@ -208,7 +218,9 @@ def run_scenario(inputs: ScenarioInputs, data: dict) -> ScenarioResult:
         partner_contribution=y40["partner_contribution"],
         **targets.classify_2040_finance(y40["cash_headroom"]))
 
-    milestones = {year: _milestone(row, band, year) for year, row in ((TARGET_YEAR, y30), (NETZERO_YEAR, y40))}
+    base_residual = pathway.set_index("year").loc[BASE_YEAR, "residual_emis"]
+    milestones = {year: _milestone(row, band, year, base_residual)
+                  for year, row in ((TARGET_YEAR, y30), (NETZERO_YEAR, y40))}
 
     diagnostics = dict(
         ocf_share_revenue_2025=data["ocf_2025"] / data["revenue_2025"],
@@ -224,6 +236,21 @@ def run_scenario(inputs: ScenarioInputs, data: dict) -> ScenarioResult:
                      "Scope 3 emissions", "CORSIA compliance cost"],
     )
     return ScenarioResult(pathway, outcome_2030, physical_2040, financial_2040, milestones, diagnostics)
+
+
+def abatement_economics(pathway):
+    """Cumulative tonnes kept out of the air vs business as usual, and what they cost.
+
+    The one comparison that survives every framing: no carbon price, no discount rate and
+    no cumulative-versus-annual choice can manufacture or destroy it. Deliberately NOT a
+    field on ScenarioResult - bau_reference() is itself a run_scenario call, so computing
+    this inside run_scenario would recurse forever.
+    """
+    abated = bau_reference()["pathway"]["residual_emis"].sum() - pathway["residual_emis"].sum()
+    spend = (pathway["net_saf_premium"] + pathway["catalytic_investment"]).sum()
+    return dict(cumulative_emissions=pathway["residual_emis"].sum(),
+                cumulative_abated_vs_bau=abated, abatement_spend=spend,
+                cost_per_tonne_abated=(spend / abated) if abated > 0 else float("inf"))
 
 
 @lru_cache(maxsize=1)
@@ -293,7 +320,7 @@ def preset_scenarios():
     return out
 
 
-def _milestone(row, band, year):
+def _milestone(row, band, year, base_residual=None):
     """The same six KPI figures for any milestone year, so the UI can loop instead of branch.
 
     The 10-14% band is a 2030 target, so only the 2030 milestone carries a pass/fail
@@ -301,8 +328,15 @@ def _milestone(row, band, year):
     """
     verdict = (targets.classify_2030(row["reduction_vs_2019"], band) if year == TARGET_YEAR
                else dict(state=None, label="vs 2019 baseline"))
+    # Intensity is a ratio; the atmosphere sees the absolute tonnes. Carry both so the UI
+    # can show a pathway meeting its intensity target while emitting more than it used to.
+    delta = (row["residual_emis"] / base_residual - 1) if base_residual else None
+    absolute = None if delta is None else (
+        "below" if delta < -0.005 else "meets" if delta <= 0.005 else "exceeds")
     return dict(
         year=year, reduction=row["reduction_vs_2019"], intensity=row["intensity"],
+        residual_vs_base=delta, absolute_state=("below" if absolute == "exceeds" else
+                                                "meets" if absolute == "below" else None),
         residual_emis=row["residual_emis"], revenue=row["revenue"],
         saf_cost=row["net_saf_premium"], saf_share_revenue=row["saf_cost_share_revenue"],
         carbon_price=row["carbon_price"], annual_cost=row["annual_cost"],

@@ -38,8 +38,10 @@ Two price mechanisms exist so that "invest early, save later" is expressible at 
 catalytic capital walks the SAF premium down after its maturation lag, and the carbon
 planning price can escalate in real terms. Both are inert at their defaults, so workbook
 parity is untouched. `docs/model_decisions.md` uses them to review the hypothesis that
-**delaying is cheaper to 2030 but dearer to reach net zero by 2040** — which holds in
-both halves: Conservative leads by $1.37B to 2030, then loses by $6.48B by 2040.
+**delaying is cheaper to 2030 but dearer to reach net zero by 2040** — of which only the
+first half holds. Conservative is cheaper at both dates ($50.86B vs $53.95B to 2040). What
+survives is the abatement comparison: All-In keeps 65.4 Mt out of the air at $353/t against
+Conservative's 6.6 Mt at $456/t — ten times the abatement, a fifth less per tonne.
 
 The investable-cash headroom KPI and its budget-bar chart are still in the engine
 (`financial_2040`) and in `src/viz.py::budget_bar`, but are not currently on the page.
@@ -80,7 +82,7 @@ The two HTML documents are standalone — open them in a browser, they are not p
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest tests -q      # 113 tests
+python -m pytest tests -q      # 119 tests
 ```
 
 `tests/test_parity.py` reproduces every column of the workbook's `Model` sheet for every

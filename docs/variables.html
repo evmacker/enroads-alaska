@@ -109,27 +109,27 @@ conventional-only basis before the 80% lifecycle reduction is applied. Every SAF
 cost-per-tonne figure in the app divides by this number.</pre>
 
 <h2>2. User inputs</h2>
-<p>Sixteen fields on <code>ScenarioInputs</code>. Fourteen are sliders; two are
-<span class="pill hidden">hidden</span> and pinned to their defaults.</p>
+<p>Sixteen fields on <code>ScenarioInputs</code>. Fifteen are sliders; only
+<code>saf_supply_case</code> is <span class="pill hidden">hidden</span> and pinned.</p>
 
 <table>
 <tr><th>Input</th><th>Group</th><th>Default</th><th>Range</th><th>Drives</th></tr>
 <tr><td><code>saf_share_2030</code></td><td>SAF</td><td>10%</td><td>0&ndash;50%</td><td>SAF ramp to 2030</td></tr>
 <tr><td><code>saf_share_2040</code></td><td>SAF</td><td>60%</td><td>0&ndash;100%</td><td>SAF ramp 2030&rarr;2040</td></tr>
 <tr><td><code>saf_premium</code></td><td>SAF</td><td>1.00</td><td>0&ndash;3.00</td><td>SAF price over jet fuel</td></tr>
-<tr><td><code>partner_share</code></td><td>SAF</td><td>0%</td><td>0&ndash;100%</td><td>Premium shifted to third parties</td></tr>
+<tr><td><code>partner_share</code></td><td>SAF</td><td>0%</td><td>0&ndash;50%</td><td>Premium shifted to third parties. Capped: at 100% SAF is free and Alaska still books the abatement</td></tr>
 <tr><td><code>fleet_renewal</code></td><td>Operations</td><td>0%</td><td>0&ndash;100%</td><td>Fuel burn per ASM</td></tr>
 <tr><td><code>ground_elec</code></td><td>Operations</td><td>0%</td><td>0&ndash;100%</td><td>Vehicle Scope 1 only</td></tr>
 <tr><td><code>novel_propulsion</code></td><td>Operations</td><td>0%</td><td>0&ndash;50%</td><td>Displaces liquid-fuel activity</td></tr>
-<tr><td><code>catalytic_pct</code></td><td>Money</td><td>0%</td><td>0&ndash;5%</td><td>SAF capacity <em>and</em> <span class="pill new">new</span> premium buy-down</td></tr>
-<tr><td><code>investable_pct</code> <span class="pill hidden">hidden</span></td><td>Money</td><td>3%</td><td>0&ndash;10%</td><td>Cash-headroom test only</td></tr>
+<tr><td><code>catalytic_pct</code></td><td>Money</td><td>0%</td><td>0&ndash;5%</td><td>SAF capacity <em>and</em> <span class="pill new">new</span> premium buy-down, scaled by realised market capture</td></tr>
+<tr><td><code>investable_pct</code></td><td>Money</td><td>5%</td><td>1&ndash;30%</td><td>Cash-headroom test only. Range must span the ~19.6% break-even or the verdict is fixed</td></tr>
 <tr><td><code>activity_adj</code></td><td>Baselines</td><td>0%/yr</td><td>&plusmn;3%</td><td>Deviation from FAA baseline</td></tr>
 <tr><td><code>efficiency_adj</code></td><td>Baselines</td><td>0%/yr</td><td>&plusmn;2%</td><td>Deviation from EIA baseline</td></tr>
 <tr><td><code>saf_supply_case</code> <span class="pill hidden">hidden</span></td><td>Baselines</td><td>Base</td><td>Base / Conservative</td><td>Rystad 2035 anchor</td></tr>
-<tr><td><code>post_2035_growth</code></td><td>Baselines</td><td>10%/yr</td><td>0&ndash;20%</td><td>US supply past the last anchor</td></tr>
+<tr><td><code>post_2035_growth</code></td><td>Baselines</td><td>7.3%/yr</td><td>0&ndash;20%</td><td>US supply past the last anchor. Derived: the anchors&rsquo; own 2030&rarr;2035 slope, continued</td></tr>
 <tr><td><code>carbon_price</code></td><td>Baselines</td><td>$200/t</td><td>$25&ndash;500</td><td>Offset and closure cost</td></tr>
-<tr><td><code>carbon_escalation</code> <span class="pill new">new</span></td><td>Baselines</td><td>0%/yr</td><td>0&ndash;10%</td><td>Real growth in the carbon price</td></tr>
-<tr><td><code>removal_growth</code></td><td>Baselines</td><td>0%/yr</td><td>0&ndash;60%</td><td>Presentational only &mdash; never constrains</td></tr>
+<tr><td><code>carbon_escalation</code> <span class="pill new">new</span></td><td>Baselines</td><td>3.3%/yr</td><td>0&ndash;10%</td><td>Real growth in the carbon price. IEA NZE; corroborated by EU ETS</td></tr>
+<tr><td><code>removal_growth</code></td><td>Baselines</td><td>20%/yr</td><td>0&ndash;60%</td><td>Presentational only. 0% is not neutral &mdash; it freezes the market for 14 years</td></tr>
 </table>
 
 <h2>3. Backend anchors</h2>
@@ -142,8 +142,8 @@ cost-per-tonne figure in the app divides by this number.</pre>
 <tr><td><code>neutralization_share</code></td><td>1.00</td><td>All of the 2040 residual is neutralized</td></tr>
 <tr><td><code>saf_capital_intensity</code></td><td>$14.67/annual gal</td><td>DOE: &gt;$44B for &gt;3B gal/yr</td></tr>
 <tr><td><code>catalytic_lag_years</code></td><td>3</td><td>Investment &rarr; operating capacity</td></tr>
-<tr><td><code>catalytic_learning_rate</code> <span class="pill new">new</span></td><td>0.01</td><td><b>No empirical source.</b> Chosen in session</td></tr>
-<tr><td><code>catalytic_reference_spend</code> <span class="pill new">new</span></td><td>$50M</td><td><b>No empirical source.</b> Tranche size</td></tr>
+<tr><td><code>saf_learning_rate</code> <span class="pill new">new</span></td><td>0.10</td><td>Wright&rsquo;s law, per doubling of cumulative output. Feedstock-dominated biofuels learn slowly: renewable diesel 1.3%, biodiesel 3.2%, ethanol 21.8%</td></tr>
+<tr><td><code>saf_premium_floor_ratio</code> <span class="pill new">new</span></td><td>0.50</td><td>Share of the premium capital can never buy down. ICAO nth-plant minimum selling prices</td></tr>
 <tr><td><code>saf_2030_probable</code></td><td>2.049B gal</td><td>Peer-reviewed probable US production</td></tr>
 <tr><td><code>saf_2035_base</code> / <code>_conservative</code></td><td>2.913B / 1.686B gal</td><td>Rystad 190k / 110k bpd cases</td></tr>
 <tr><td><code>saf_2025_actual</code></td><td>0.288B gal</td><td>EPA RFS full-year actual</td></tr>
@@ -180,9 +180,11 @@ place a constraint binds anywhere in the model.</p></div>
 <br><b>&rarr; reduction_vs_2019, residual_emis</b> (aircraft + vehicle + facility + Scope 2)</p></div>
 
 <div class="step gate"><b>6 &nbsp;the two prices</b> <span class="pill new">new</span>
-<p>SAF premium = market premium &times; (1 &minus; 0.01)<sup>cumulative CVC / $50M</sup> &mdash; falls with money deployed.
+<p>SAF premium = floor + (1 &minus; floor) &times; (1 &minus; LR)<sup>doublings &times; capture</sup>
+&mdash; Wright&rsquo;s law on the extra doublings of US output Alaska&rsquo;s capital buys,
+scaled by the share it actually purchases, with a floor at the cost of production.
 <br>carbon price = base &times; (1 + escalation)<sup>t&minus;2025</sup> &mdash; rises with time.
-<br>They move for different reasons and in opposite directions. Both are inert at their defaults.</p></div>
+<br>Both return their identity at zero investment / zero escalation, which is what holds parity.</p></div>
 
 <div class="step out"><b>7 &nbsp;money</b>
 <p>net_saf_premium from fuel_costs() &middot; offset_cost = residual &times; carbon price
@@ -201,6 +203,7 @@ investment sets the SAF price. Nothing sets activity except the FAA baseline and
 <tr><th>Quantity</th><th>Independent of</th><th>Why</th></tr>
 <tr><td><code>saf_cost_per_tonne</code></td><td>How much SAF you buy</td><td>It is a price, not a total. Twice the SAF buys twice the abatement at twice the cost, so the share cancels</td></tr>
 <tr><td><code>intensity</code></td><td>Every price and every budget</td><td>Physical levers only. Money cannot move the projection chart</td></tr>
+<tr><td><code>cost_per_tonne_abated</code></td><td>Carbon price, escalation, discounting, cumulative-vs-annual</td><td>The one comparison no framing choice can move. Lives in <code>abatement_economics()</code>, outside <code>run_scenario</code> because BAU is itself a scenario</td></tr>
 <tr><td><code>carbon_supply</code></td><td>Everything downstream</td><td>Presentational. Carbon supply never constrains the model</td></tr>
 <tr><td><code>revenue</code></td><td>Fuel cost, SAF spend, carbon price</td><td>Tracks activity alone</td></tr>
 <tr><td>Reference pathways</td><td>Every sidebar slider</td><td>Computed from fixed input sets, which is what makes them references</td></tr>

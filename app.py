@@ -11,8 +11,8 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 import viz  # noqa: E402
-from model import (bau_reference, default_inputs, load_data, preset_inputs,  # noqa: E402
-                   preset_scenarios, run_scenario)
+from model import (abatement_economics, bau_reference, default_inputs,  # noqa: E402
+                   load_data, preset_inputs, preset_scenarios, run_scenario)
 from model.core import LEVER_ORDER, SCENARIO_ORDER  # noqa: E402
 
 st.set_page_config(page_title="Alaska Airlines decarbonization", page_icon="✈️", layout="wide")
@@ -83,7 +83,8 @@ def milestone_tiles(m):
     rows = [
         [(f"{m['year']} intensity reduction", f"{m['reduction']:.1%}", m["label"], m["state"]),
          ("Carbon emissions needing offset", f"{m['residual_emis']/1e6:,.2f} Mt",
-          "residual after physical levers", None)],
+          (f"{m['residual_vs_base']:+.1%} vs 2025" if m["residual_vs_base"] is not None
+           else "residual after physical levers"), m["absolute_state"])],
         [("Total cost to invest in SAF", money(m["saf_cost"]),
           "net premium after partner support", None),
          ("Total cost to buy carbon offsets", money(m["offset_cost"]),
@@ -138,12 +139,25 @@ st.caption(f"**{scn['label']}** — {scn['note']}"
               "  *The sidebar shows this strategy's values; moving any of them switches "
               "to Custom.*"))
 
+econ = abatement_economics(result.pathway)
+st.caption(
+    f"Over 2025–2040 this pathway keeps **{econ['cumulative_abated_vs_bau']/1e6:,.1f} Mt** "
+    f"out of the air versus business as usual, for **{money(econ['abatement_spend'])}** of "
+    f"abatement spend — **${econ['cost_per_tonne_abated']:,.0f} per tonne actually abated**. "
+    f"That figure needs no carbon price and no discounting, so unlike the totals below it "
+    f"cannot be moved by a framing choice.")
+
 left, right = st.columns(2, gap="medium")
 for column, year in ((left, 2030), (right, 2040)):
     with column:
         st.markdown(f"<div style='text-align:center;font-size:1.1rem;font-weight:650;"
                     f"padding-bottom:.45rem'>{year}</div>", unsafe_allow_html=True)
         milestone_tiles(result.milestones[year])
+        ms = result.milestones[year]
+        if ms["state"] in ("meets", "exceeds") and (ms["residual_vs_base"] or 0) > 0.005:
+            st.caption(f":orange[Meets the intensity target and still emits "
+                       f"{ms['residual_vs_base']:+.1%} more carbon than 2025 — "
+                       f"growth outruns efficiency.]")
 
 st.markdown("")
 BAU = bau_reference()

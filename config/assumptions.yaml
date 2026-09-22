@@ -10,19 +10,19 @@ inputs:
   saf_share_2030:   {default: 0.10, min: 0.0,  max: 0.50, step: 0.01, label: "SAF share 2030",  help: "Share of liquid jet fuel from SAF in 2030.", fmt: "pct", group: "SAF"}
   saf_share_2040:   {default: 0.60, min: 0.0,  max: 1.00, step: 0.05, label: "SAF share 2040",  help: "Share of liquid jet fuel from SAF in 2040.", fmt: "pct", group: "SAF"}
   saf_premium:      {default: 1.00, min: 0.0,  max: 3.00, step: 0.05, label: "SAF price premium", help: "Market SAF price premium over conventional jet fuel. No transparent SAF spot price exists.", fmt: "pct", group: "SAF"}
-  partner_share:    {default: 0.00, min: 0.0,  max: 1.00, step: 0.05, label: "Partner-funded share of premium", help: "Scope 3 / book-and-claim support. Shifts cost, not physical SAF use.", fmt: "pct", group: "SAF"}
+  partner_share:    {default: 0.00, min: 0.0,  max: 0.50, step: 0.05, label: "Partner-funded share of premium", help: "Scope 3 / book-and-claim support. Shifts cost, not physical SAF use. 0% asserts Alaska's existing corporate SAF program (Microsoft, Boeing, WSU) never scales - a cost-conservative floor, not a neutral reading. Capped at 50%: at 100% the SAF is free to Alaska and it still books all the abatement.", fmt: "pct", group: "SAF"}
   fleet_renewal:    {default: 0.00, min: 0.0,  max: 1.00, step: 0.05, label: "Fleet renewal by 2040", help: "Incremental beyond the EIA efficiency baseline. 0% avoids double counting.", fmt: "pct", group: "Operations"}
   ground_elec:      {default: 0.00, min: 0.0,  max: 1.00, step: 0.05, label: "Ground electrification by 2040", help: "Share of Scope 1 vehicle emissions removed. Ceiling is small by construction: ground vehicles are 0.28% of the 2040 operational residual, so even 100% electrification removes ~20k t (~$4M at $200/t). Included for completeness, not leverage.", fmt: "pct", group: "Operations"}
   novel_propulsion: {default: 0.00, min: 0.0,  max: 0.50, step: 0.05, label: "Novel propulsion by 2040", help: "Zero-carbon propulsion proxy displacing liquid-fuel activity.", fmt: "pct", group: "Operations"}
   catalytic_pct:    {default: 0.00, min: 0.0,  max: 0.05, step: 0.005, label: "Catalytic capital (% revenue)", help: "Strategic investment that adds US SAF capacity after a 3-year lag. Supply effect only, and supply only affects emissions when it BINDS - if the scenario is not already supply-constrained, this spends money and abates nothing. Check the SAF supply tab for a non-zero gap before spending here.", fmt: "pct", group: "Money"}
-  investable_pct:   {default: 0.03, min: 0.0,  max: 0.10, step: 0.005, label: "Investable cash (% revenue)", help: "Explicit budget assumption. 2025 OCF/revenue was 8.4%, but OCF also funds normal capex, debt service and working capital, so only part of it is investable in decarbonization.", fmt: "pct", group: "Money", visible: false}
+  investable_pct:   {default: 0.05, min: 0.01, max: 0.30, step: 0.01,  label: "Investable cash (% revenue)", help: "Explicit budget assumption. 2025 OCF/revenue was 8.4%; OCF also funds normal capex, debt service and working capital, so only part is investable here. 5% is ~60% of OCF. The range reaches 30% because the default pathway does not break even until ~19.6% - at the old 10% ceiling the verdict could only ever read over budget.", fmt: "pct", group: "Money"}
   activity_adj:     {default: 0.00, min: -0.03, max: 0.03, step: 0.005, label: "Activity vs FAA (%/yr)", help: "0% = FAA system ASM baseline.", fmt: "pct", group: "Baselines"}
   efficiency_adj:   {default: 0.00, min: -0.02, max: 0.02, step: 0.005, label: "Efficiency vs EIA (%/yr)", help: "0% = EIA aircraft-efficiency baseline.", fmt: "pct", group: "Baselines"}
   saf_supply_case:  {default: "Base", options: ["Base", "Conservative"], label: "US SAF supply case", help: "Base = Rystad 190k bpd 2035; Conservative = 110k bpd.", fmt: "choice", group: "Baselines", visible: false}
-  post_2035_growth: {default: 0.10, min: 0.0,  max: 0.20, step: 0.01, label: "Post-2035 SAF growth (%/yr)", help: "Growth after the last published 2035 anchor. 0% is a stress-test floor, not a neutral choice - it asserts US SAF production physically flatlines for five years, which no policy or project pipeline supports. Use ~1%/yr as a conservative floor; 0% only to test fragility.", fmt: "pct", group: "Baselines"}
+  post_2035_growth: {default: 0.073, min: 0.0, max: 0.20, step: 0.001, label: "Post-2035 SAF growth (%/yr)", help: "Growth after the last published 2035 anchor. 7.3% is the anchors' own last segment (2.049B gal 2030 to 2.913B gal 2035) continued - a rule rather than a number. The former 10% default was an unsourced ACCELERATION past the last anchor, which flattered the model by shrinking Alaska's required share of US supply. 0% is a stress-test floor, not a neutral choice.", fmt: "pct", group: "Baselines"}
   carbon_price:     {default: 200,  min: 25,   max: 500,  step: 25,   label: "Carbon planning price ($/t)", help: "Single planning price on modeled 2040 residual. CORSIA midpoint reference is $59/t; durable removal benchmark is $200/t.", fmt: "usd", group: "Baselines"}
-  carbon_escalation: {default: 0.00, min: 0.0, max: 0.10, step: 0.005, label: "Carbon price escalation (%/yr)", help: "Real growth in the carbon planning price as cheap credits are exhausted. 0% reproduces the workbook's single flat price. The reference pathways use 3.3%/yr, the rate that brings $200/t up to SAF's own $324/t by 2040.", fmt: "pct", group: "Baselines"}
-  removal_growth:   {default: 0.00, min: 0.0,  max: 0.60, step: 0.05, label: "Durable removal market growth (%/yr)", help: "Growth of the durable carbon removal market from its observed Aug/Sep 2026 volume. 0% avoids hidden extrapolation; there is no published forward supply anchor, so this is yours to set. Presentational only - it never constrains the model.", fmt: "pct", group: "Baselines"}
+  carbon_escalation: {default: 0.033, min: 0.0, max: 0.10, step: 0.001, label: "Carbon price escalation (%/yr)", help: "Real growth in the carbon planning price as cheap credits are exhausted. 3.3%/yr is IEA NZE (advanced-economy CO2 ~$130/t 2030 to $250/t 2050 = 3.32%/yr) and is corroborated by EU ETS (EUR 82.5/t Aug 2026 to ~EUR 130 by 2040 = 3.35%/yr). World Bank implies 2.3%, NGFS NZ2050 6.8%. 0% reproduces the workbook's single flat price and is a parity fixture, not a forecast.", fmt: "pct", group: "Baselines"}
+  removal_growth:   {default: 0.20, min: 0.0,  max: 0.60, step: 0.01, label: "Durable removal market growth (%/yr)", help: "Growth of the durable carbon removal market from its observed Aug/Sep 2026 volume. There is still no published forward supply anchor, so this remains yours to set - but 0% is not the neutral choice it looks like, it asserts the market stays frozen for fourteen years. 20%/yr is roughly a SEVENTH of the observed 151%/yr delivery CAGR excluding Microsoft and Frontier, i.e. deliberately pessimistic. Presentational only - it never constrains the model.", fmt: "pct", group: "Baselines"}
 
 # Reference pathways for the projection chart's three-way toggle.
 #
@@ -36,9 +36,8 @@ references:
   custom:
     label: "Custom"
     note: >-
-      Whatever the sidebar says. Every lever is yours, starting from the workbook's own
-      defaults.
-    overrides: {}
+      Whatever the sidebar says. Every lever is yours. No `overrides` key here: Custom is
+      built from the live sidebar, never from this block.
   bau:
     label: "Business as usual"
     note: >-
@@ -85,8 +84,17 @@ anchors:
   # premium only - Alaska funding SAF capacity is no reason for the global carbon credit
   # price to fall, and discounting both by one factor could never change which tonne is
   # cheaper. Exactly 1.0 when nothing is invested, which is what keeps workbook parity.
-  catalytic_learning_rate: 0.01        # r, per reference tranche deployed
-  catalytic_reference_spend: 50000000  # $50M tranche
+  # Wright's law: cost falls by `saf_learning_rate` per DOUBLING of cumulative output.
+  # 10% is the defensible central value for a FEEDSTOCK-DOMINATED fuel. Feedstock is 87%
+  # of HEFA and 93% of ATJ cost, and feedstock-heavy biofuels learn slowly: renewable
+  # diesel 1.3%, biodiesel 3.2%, ethanol 21.8%. Solar's 20% is the wrong analogue - it is
+  # a manufactured good with no commodity input.
+  saf_learning_rate: 0.10
+  # The share of the market premium capital can NEVER buy down, because SAF has a cost of
+  # production. 0.50 implies ~$4.55-4.95/gal nth-plant SAF: below every marginal pathway
+  # in the ICAO nth-plant table (ATJ/FT at 65-180% premium) and above waste-FOG HEFA,
+  # whose ~2% premium is feedstock-capped and cannot supply billions of gallons.
+  saf_premium_floor_ratio: 0.50
   saf_2030_probable: 2048980612      # peer-reviewed probable production
   saf_2035_base: 2912700000          # Rystad base 190k bpd
   saf_2035_conservative: 1686300000  # Rystad low 110k bpd

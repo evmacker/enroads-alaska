@@ -1,4 +1,5 @@
 """US SAF supply: published anchors, explicit post-2035 growth, catalytic capacity."""
+import math
 
 
 def us_supply(year, case, post_2035_growth, a):
@@ -31,22 +32,30 @@ def catalytic_capacity(years, revenue, catalytic_pct, a):
     return invest, matured, capacity
 
 
-def learning_factor(cumulative_investment, a):
-    """SAF premium multiplier bought by cumulative catalytic venture capital.
+def learning_factor(cum_baseline_gal, cum_added_gal, capture_share, a):
+    """How far catalytic capital walks the SAF premium down, on the standard basis.
 
-        SAF premium(t) = market premium(t) x (1 - r) ** (cumulative CVC(t) / tranche)
+        factor = floor + (1 - floor) * (1 - LR) ** (doublings * capture_share)
+        doublings = log2((baseline + added) / baseline)
 
-    NEW, not in the workbook. The exponent is money deployed, not years elapsed, so the
-    discount is negligible early and compounds as spend accumulates - which is what makes
-    catalytic capital a short-term cost and a long-term saving rather than a free lunch.
+    NEW, not in the workbook. Three things this gets right that a naive decay does not:
 
-    It moves the SAF premium only. Alaska funding SAF capacity is no reason for the global
-    carbon credit price to fall, and discounting both by the same factor would leave their
-    ratio fixed - which can never change which tonne is cheaper.
+    1. WRIGHT'S LAW, NOT DOLLARS. Experience curves are quoted per DOUBLING of cumulative
+       output, so the exponent is the extra doublings the money buys. An earlier version
+       used dollars/$50M, which for Alaska's $5.52B implied ~10.5 doublings of US SAF
+       production against the 0.07 it actually funds - a 146x overstatement.
+    2. A FLOOR. SAF has a cost of production. Without `floor` the curve decays to zero and
+       enough capital makes SAF cheaper than fossil jet, which cannot happen.
+    3. CAPTURE. Capacity built with Alaska's money serves the whole market, so Alaska
+       captures a share of the decline proportional to what it actually buys - not all of
+       it. Awarding the full benefit to the funder is what made spending look free.
 
     Returns exactly 1.0 when nothing has been invested, which is what keeps workbook parity.
+    The affine form also returns exactly 1.0 at zero doublings for ANY floor value.
     """
-    if cumulative_investment <= 0:
+    if cum_added_gal <= 0 or cum_baseline_gal <= 0:
         return 1.0
-    tranches = cumulative_investment / a["catalytic_reference_spend"]
-    return (1 - a["catalytic_learning_rate"]) ** tranches
+    doublings = math.log2((cum_baseline_gal + cum_added_gal) / cum_baseline_gal)
+    captured = doublings * min(1.0, max(0.0, capture_share))
+    floor = a["saf_premium_floor_ratio"]
+    return floor + (1 - floor) * (1 - a["saf_learning_rate"]) ** captured

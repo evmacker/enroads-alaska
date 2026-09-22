@@ -79,6 +79,19 @@ decarbonization explorer &mdash; the things most likely to be wrong, and the thi
 would change the answer if they were.</p>
 <p class="meta">Companion to <code>docs/variables.html</code></p>
 
+<div class="item fatal" style="margin-top:1.5rem">
+<h3>Status: items 2, 3 and 5 have been fixed<span class="tag fatal">resolved</span></h3>
+<p>A three-way review confirmed the SAF buy-down was <b>~146&times; too strong</b> and that
+Alaska was booking 100% of a price decline it funded a quarter of. Both are corrected:
+<code>saf.learning_factor()</code> now uses Wright&rsquo;s law on the doublings the money
+actually buys, carries a floor, and scales the benefit by realised market capture.</p>
+<p><b>This reversed the model&rsquo;s headline.</b> All-In no longer beats Conservative by
+$6.48B; it now <em>loses</em> by $3.09B. The surviving claim is the abatement one &mdash;
+65.35 Mt at $353/t against 6.58 Mt at $456/t. Figures below marked
+<span class="pill" style="border-color:var(--muted)">historic</span> describe the
+pre-correction model and are kept to show what was wrong.</p>
+</div>
+
 <div class="note">
 <b>Why this document exists.</b> The engine reproduces the source workbook to
 <code>rel=1e-9</code>, which makes it a verified port. It does not make it a good model.
@@ -106,7 +119,7 @@ available at the planning price is unsafe.</p>
 </div>
 
 <div class="item fatal">
-<h3>2. The SAF buy-down has no floor<span class="tag fatal">fatal</span></h3>
+<h3>2. The SAF buy-down had no floor<span class="tag fatal">resolved</span></h3>
 <pre>SAF premium(t) = market premium(t) x (1 - 0.01) ^ (cumulative CVC(t) / $50M)</pre>
 <p>Nothing bounds this below. Push catalytic capital to its 5% slider maximum and
 $13.80B of cumulative investment drives the multiplier to 0.0624:</p>
@@ -114,8 +127,13 @@ $13.80B of cumulative investment drives the multiplier to 0.0624:</p>
 <span class="fig">SAF abatement <b>$20/t</b></span>
 <p>SAF has a cost of production that cannot fall to near-parity with fossil jet fuel no
 matter how much capital arrives. The curve should asymptote to a floor; it decays to zero.</p>
-<p class="verdict"><b>Effect:</b> every conclusion at high <code>catalytic_pct</code> is
-fantasy. The 2% used by All-In is already a 67% premium cut, which is aggressive.</p>
+<p class="verdict"><b>Resolved.</b> <code>learning_factor</code> is now
+<code>floor + (1 &minus; floor) &times; decay</code> with
+<code>saf_premium_floor_ratio: 0.50</code>, derived from ICAO nth-plant minimum selling
+prices: it sits below every marginal pathway (ATJ/FT at 65&ndash;180% premium) and above
+waste-FOG HEFA, whose ~2% premium is feedstock-capped and cannot supply billions of
+gallons. The affine form returns exactly 1.0 at zero investment for any floor, so parity
+holds.</p>
 </div>
 
 <div class="item fatal">
@@ -126,11 +144,13 @@ single largest determinant of whether investing early pays off:</p>
 <table>
 <tr><th>Rate</th><th>2040 SAF price</th><th>Does All-In beat Conservative?</th></tr>
 <tr><td>0 (no buy-down)</td><td>$324/t</td><td>No, and it never can</td></tr>
-<tr><td>1% / $50M (as shipped)</td><td>$107/t</td><td>Yes, by $6.48B</td></tr>
+<tr><td>1% / $50M (was shipped)</td><td>$107/t</td><td>Yes, by $6.48B</td></tr>
+<tr><td><b>Wright&rsquo;s law, LR 10% (now)</b></td><td><b>$324/t</b></td><td><b>No &mdash; loses by $3.09B</b></td></tr>
 </table>
-<p class="verdict"><b>Effect:</b> the headline finding is a function of an unsourced
-parameter. This is the first number to attack, and the first to replace with something
-defensible.</p>
+<p class="verdict"><b>Resolved.</b> $5.52B buys 0.072 extra doublings of cumulative US SAF
+output, not the ~10.5 the old exponent implied. The reversal is insensitive to the rate:
+5%, 10%, 20% and 30% all land within $0.25B, because the doublings term governs, not the
+rate. That is what makes it damning rather than arguable.</p>
 </div>
 
 <div class="item fatal">
@@ -147,7 +167,7 @@ containing other airlines. It describes a world where Alaska is the only bidder.
 <h2>Circular &mdash; the model assumes part of its own conclusion</h2>
 
 <div class="item circular">
-<h3>5. Alaska's investment discounts only Alaska's price<span class="tag circular">circular</span></h3>
+<h3>5. Alaska's investment discounted only Alaska's price<span class="tag circular">resolved</span></h3>
 <p>Catalytic capital builds <em>public</em> SAF capacity, then hands <em>Alaska alone</em>
 the resulting price decline. In reality, capacity investment lowers the market clearing
 price for every buyer, and the investor captures a share roughly proportional to its own
@@ -155,42 +175,52 @@ purchases &mdash; a few percent, not all of it.</p>
 <p>So the mechanism reads: spend money &rarr; your own input price falls &rarr; you look
 efficient. The benefit of a public good is booked privately, with no spillover and no
 free-riding by competitors.</p>
-<p class="verdict"><b>Effect:</b> the return on catalytic capital is overstated by roughly
-the reciprocal of Alaska's market share. This is the most structurally circular part of
-the model.</p>
+<p class="verdict"><b>Resolved.</b> The buy-down exponent is now scaled by
+<code>catalytic_capture</code> &mdash; the share of US SAF supply Alaska actually buys
+(24.4% for All-In in 2040). Applied alone this was enough to flip the headline from
++$6.48B to &minus;$0.17B; combined with Wright&rsquo;s law the buy-down is nearly inert.
+This was the single most load-bearing defect in the model.</p>
 </div>
 
 <div class="item circular">
-<h3>6. The carbon escalation rate was reverse-engineered<span class="tag circular">circular</span></h3>
+<h3>6. The carbon escalation rate was reverse-engineered<span class="tag circular">over-indicted</span></h3>
 <p>Both strategies use <code>carbon_escalation = 3.3%/yr</code>. That rate was not taken
 from a forecast. It was <em>solved for</em>: it is the rate that lifts $200/t to SAF's
 undiscounted $324/t by 2040 &mdash; that is, the rate that makes the two price lines cross.</p>
-<p class="verdict"><b>Effect:</b> the crossing is partly assumed rather than discovered.
-3.3%/yr is not implausible for carbon prices, which is the only reason this is
-uncomfortable rather than disqualifying.</p>
+<p class="verdict"><b>This item over-indicted itself.</b> Two reviewers independently
+corroborated 3.3%/yr from unrelated sources: IEA NZE (advanced-economy CO2 ~$130/t 2030
+&rarr; $250/t 2050 = 3.32%/yr) and EU ETS (&euro;82.5/t Aug 2026 &rarr; ~&euro;130 by 2040
+= 3.35%/yr). The conclusion also survives the whole sourced range 2.3&ndash;6.8% and even
+0% escalation; break-even is around &minus;1%/yr. The rate was fine; only its stated
+derivation was the defect, and the help text now cites IEA NZE instead of the crossing.</p>
 </div>
 
 <h2>Framing &mdash; the same model gives opposite answers</h2>
 
 <div class="item framing">
-<h3>7. Intensity can improve while emissions rise<span class="tag framing">framing</span></h3>
+<h3>7. Intensity can improve while emissions rise<span class="tag framing">surfaced</span></h3>
 <p>The 2030 target is an <em>intensity</em> reduction per revenue tonne mile. Under business
 as usual the model reports:</p>
 <span class="fig">intensity <b>15.2% better</b> by 2040</span>
 <span class="fig">absolute emissions <b>10.46 &rarr; 13.54 Mt (+29.4%)</b></span>
 <p>Growth outruns efficiency. The headline KPI tile can read green while the airline emits
 a third more carbon than when it started.</p>
-<p class="verdict"><b>Effect:</b> "meets target" is not "is decarbonizing". The app shows
-absolute tonnes on the second chart, but the 2030 verdict is intensity-only because the
-target is.</p>
+<p>Worse than a BAU artifact: <b>Conservative</b>, the pathway that exactly meets Alaska's
+published commitment, renders a green &check; at the 2030 floor while emitting <b>5.7% more
+carbon in 2030 than in 2025</b> and 20.9% more by 2040.</p>
+<p class="verdict"><b>Surfaced, not fixed &mdash; the target is the real commitment.</b> The
+tonnage tile now carries <code>&plusmn;N% vs 2025</code> with its own verdict colour, so a
+green intensity tile sits beside a red tonnage tile, and a caption fires when the two
+disagree: <em>"Meets the intensity target and still emits +5.7% more carbon than 2025 &mdash;
+growth outruns efficiency."</em></p>
 </div>
 
 <div class="item framing">
 <h3>8. Which strategy wins depends on how you count<span class="tag framing">framing</span></h3>
 <table>
 <tr><th>Framing</th><th>Conservative</th><th>All-In</th><th>Winner</th></tr>
-<tr><td>Neutralize every year (used in the review)</td><td>$50.86B</td><td>$44.38B</td><td>All-In by $6.48B</td></tr>
-<tr><td>Model's own <code>closure_cost</code>, 2040 only</td><td>$7.11B</td><td>$21.54B</td><td>Conservative, hugely</td></tr>
+<tr><td>Neutralize every year (used in the review)</td><td>$50.86B</td><td>$53.95B</td><td>Conservative by $3.09B</td></tr>
+<tr><td>Model's own <code>closure_cost</code>, 2040 only</td><td>$7.11B</td><td>$24.21B</td><td>Conservative by $17.10B</td></tr>
 </table>
 <p>The second is a workbook convention that parity depends on: it charges carbon exactly
 once, in 2040, so sixteen years of SAF premium are weighed against a single year of offsets.
@@ -246,11 +276,15 @@ free to Alaska and the abatement is still counted as Alaska's.</p>
 </div>
 
 <div class="item gap">
-<h3>13. A hidden input still drives an output<span class="tag gap">gap</span></h3>
+<h3>13. A hidden input drove an output<span class="tag gap">resolved</span></h3>
 <p><code>investable_pct</code> was removed from the sidebar and pinned at 3%. It no longer
 appears anywhere on the page, but it still governs <code>financial_2040</code>'s
 cash-headroom verdict and <code>viz.budget_bar</code>. A live judgement rests on a number
 no user can see or change.</p>
+<p class="verdict"><b>Resolved.</b> Now visible, defaulting to 5% (~60% of the observed 8.4%
+OCF/revenue), with the range widened to 1&ndash;30%. The old 10% ceiling was below the
+~19.6% break-even, so two of the three states in <code>classify_2040_finance</code> were
+unreachable dead code &mdash; the verdict could only ever read "over budget".</p>
 </div>
 
 <h2>Numerical</h2>
@@ -266,8 +300,8 @@ handled, by a 1e-9 tolerance added so that a pathway solved to land exactly on t
 
 <h2>If you only fix three things</h2>
 <div class="note">
-<p><b>1. Put a floor under the SAF buy-down</b> at a defensible cost of production, and
-source the learning rate. These two together decide the headline finding.</p>
+<p><b>1. <s>Put a floor under the SAF buy-down</s> &mdash; done,</b> and the learning rate is
+now Wright's law at 10% per doubling. Together these reversed the headline.</p>
 <p><b>2. Cap Alaska's market capture</b> at something near its share of US capacity, or
 state loudly that the pathway assumes no competing demand.</p>
 <p><b>3. Decide whether the residual is purchasable</b> and say so. If durable removals

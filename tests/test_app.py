@@ -24,10 +24,11 @@ def run(overrides=None):
 
 def test_app_renders_with_defaults():
     at = run()
-    assert len(at.slider) == 14 and len(at.selectbox) == 0   # 14 visible scenario controls
+    assert len(at.slider) == 15 and len(at.selectbox) == 0   # 15 visible scenario controls
     # visible:false inputs render no widget at all; the engine still gets their config default.
     labels = [w.label for w in list(at.slider) + list(at.selectbox)]
-    assert not any("Investable cash" in x or "supply case" in x for x in labels)
+    assert "Investable cash (% revenue)" in labels    # unhidden: it drives a live verdict
+    assert not any("supply case" in x for x in labels)
     assert "Carbon planning price ($/t)" in labels
     assert len(at.button_group) == 1 and len(at.button_group[0].options) == 3
     assert any("Alaska Airlines decarbonization pathway" in m.value for m in at.markdown)
@@ -156,6 +157,30 @@ def test_the_lever_callback_is_wired_to_every_slider():
     source = Path(APP).read_text()
     assert source.count("on_change=_lever_touched") == 2      # pct and usd branches
     assert 'st.session_state.scenario = "custom"' in source
+
+
+def test_the_tonnage_tile_can_contradict_the_intensity_tile():
+    """Conservative meets its target in green while emitting more than 2025. Say so."""
+    at = run()
+    at.button_group[0].set_value(["conservative"])
+    at.run()
+    body = " ".join(m.value for m in at.markdown)
+    assert "Meets target" in body                      # intensity verdict: green
+    assert "+5.7% vs 2025" in body                     # tonnage sub-line: up
+    assert any("growth outruns efficiency" in c.value for c in at.caption)
+
+
+def test_no_contradiction_caption_when_a_pathway_really_is_decarbonising():
+    """It must not nag All-In, whose tonnes actually fall."""
+    at = run()
+    at.button_group[0].set_value(["all_in"])
+    at.run()
+    assert not any("growth outruns efficiency" in c.value for c in at.caption)
+
+
+def test_cost_per_tonne_abated_is_on_the_page():
+    """The one metric no framing choice can move."""
+    assert any("per tonne actually abated" in c.value for c in run().caption)
 
 
 def test_chart_reveal_is_keyed_to_the_selected_strategy():

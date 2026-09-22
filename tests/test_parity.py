@@ -65,17 +65,39 @@ def workbook_grid():
     return grid
 
 
+# The workbook's own Inputs tab, stated here rather than inherited from the config.
+#
+# Parity is a claim about the ENGINE'S ARITHMETIC AT THE WORKBOOK'S INPUTS, not about the
+# app's planning defaults. Those two were the same thing until the planning defaults had to
+# diverge: several of them (a flat carbon price forever, a frozen carbon-removal market)
+# are honest as parity fixtures and misleading as the first screen of a planning tool.
+# Pinning the workbook's set here keeps the port verifiable while the app is free to open
+# on defensible assumptions. Every value below is the workbook's, and none may change.
+WORKBOOK_INPUTS = dict(
+    saf_share_2030=0.10, saf_share_2040=0.60, saf_premium=1.00, partner_share=0.0,
+    fleet_renewal=0.0, ground_elec=0.0, novel_propulsion=0.0,
+    carbon_price=200, carbon_escalation=0.0, catalytic_pct=0.0,
+    activity_adj=0.0, efficiency_adj=0.0, saf_supply_case="Base", post_2035_growth=0.10,
+)
+
+
+def workbook_inputs(data):
+    return dataclasses.replace(default_inputs(data), **WORKBOOK_INPUTS)
+
+
 @pytest.fixture(scope="module")
 def result():
     data = load_data()
-    return run_scenario(default_inputs(data), data)
+    return run_scenario(workbook_inputs(data), data)
 
 
-def test_workbook_defaults_match_config():
-    """The config defaults are the workbook's own Inputs tab, so parity is a like-for-like test."""
-    inputs = default_inputs(load_data())
-    assert (inputs.saf_share_2030, inputs.saf_share_2040, inputs.saf_premium) == (0.10, 0.60, 1.00)
-    assert (inputs.carbon_price, inputs.saf_supply_case, inputs.post_2035_growth) == (200, "Base", 0.10)
+def test_workbook_input_set_is_complete():
+    """Every field the workbook fixes must be named above, so none can drift in silently."""
+    data = load_data()
+    fixed = set(WORKBOOK_INPUTS)
+    free = {f.name for f in dataclasses.fields(default_inputs(data))} - fixed
+    # Only inputs with no workbook counterpart may be left to the config default.
+    assert free == {"investable_pct", "removal_growth"}, free
 
 
 @pytest.mark.parametrize("year", range(2025, 2041))
@@ -91,7 +113,7 @@ def test_annual_pathway_matches_workbook(result, workbook_grid, year):
 def test_stale_supply_cells_reproduce_at_zero_growth(workbook_grid):
     """At 0% post-2035 growth the engine reproduces the workbook's stale cached cells exactly."""
     data = load_data()
-    flat = dataclasses.replace(default_inputs(data), post_2035_growth=0.0)
+    flat = dataclasses.replace(workbook_inputs(data), post_2035_growth=0.0)
     pathway = run_scenario(flat, data).pathway.set_index("year")
     for year in range(2036, 2041):
         row, cached = pathway.loc[year], workbook_grid[year]

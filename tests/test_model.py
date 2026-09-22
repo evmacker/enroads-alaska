@@ -5,6 +5,7 @@ import pytest
 
 from model import (bau_reference, load_data, default_inputs, preset_inputs,
                    preset_scenarios, run_scenario)
+from model import saf as saf_mod
 from model.targets import classify_2030, classify_2040_finance
 
 
@@ -161,8 +162,12 @@ def test_offset_cost_is_priced_every_year(data):
 
 
 def test_offset_cost_matches_residual_times_price(data):
+    """Priced at THAT YEAR's carbon price, which escalates away from the 2025 anchor."""
     row = scenario(data, carbon_price=150).pathway.set_index("year").loc[2030]
-    assert row["offset_cost"] == pytest.approx(row["residual_emis"] * 150, rel=1e-12)
+    assert row["carbon_price"] > 150                      # escalation is on by default
+    assert row["offset_cost"] == pytest.approx(row["residual_emis"] * row["carbon_price"], rel=1e-12)
+    flat = scenario(data, carbon_price=150, carbon_escalation=0.0).pathway.set_index("year").loc[2030]
+    assert flat["offset_cost"] == pytest.approx(flat["residual_emis"] * 150, rel=1e-12)
     assert row["offset_share_revenue"] == pytest.approx(row["offset_cost"] / row["revenue"], rel=1e-12)
 
 
@@ -251,38 +256,54 @@ def test_price_levers_scale_saf_cost_per_tonne(data, lever, value, factor):
 
 
 def test_catalytic_capital_walks_the_saf_price_down(data):
-    """The learning curve deepens with money deployed, so it compounds over the horizon."""
+    """The buy-down is real but small: Wright's law on the doublings the money buys."""
     off = scenario(data, catalytic_pct=0.0).pathway.set_index("year")
     on = scenario(data, catalytic_pct=0.02).pathway.set_index("year")
     assert (off["learning_factor"] == 1.0).all()               # inert when nothing is spent
     assert on["learning_factor"].is_monotonic_decreasing
-    assert on.loc[2040, "saf_cost_per_tonne"] < 0.5 * off.loc[2040, "saf_cost_per_tonne"]
+    assert on.loc[2040, "saf_cost_per_tonne"] < off.loc[2040, "saf_cost_per_tonne"]
 
 
-def test_the_learning_exponent_is_spend_not_time(data):
-    """Doubling the rate doubles cumulative spend, which squares the discount exactly."""
+def test_the_buy_down_is_small_because_the_doublings_are(data):
+    """$5.52B buys ~0.07 doublings of US SAF output, not the ~10 an earlier version implied."""
     on = scenario(data, catalytic_pct=0.02).pathway.set_index("year")
-    faster = scenario(data, catalytic_pct=0.04).pathway.set_index("year")
-    assert faster.loc[2040, "cumulative_catalytic"] == pytest.approx(
-        2 * on.loc[2040, "cumulative_catalytic"], rel=1e-12)
-    assert faster.loc[2040, "learning_factor"] == pytest.approx(
-        on.loc[2040, "learning_factor"] ** 2, rel=1e-9)
+    assert on.loc[2040, "learning_factor"] > 0.99              # under 1% off the premium
+    assert on.loc[2040, "cumulative_catalytic"] > 5e9          # having spent over $5B
 
 
-def test_carbon_price_escalates_only_when_asked(data):
-    """Flat at the 0% default, which is the workbook's single-price assumption."""
-    flat = scenario(data).pathway.set_index("year")["carbon_price"]
-    assert flat.nunique() == 1 and flat.iloc[0] == 200
-    rising = scenario(data, carbon_escalation=0.033).pathway.set_index("year")["carbon_price"]
+def test_the_premium_floor_holds_at_any_investment(data):
+    """SAF has a cost of production: capital can never drive the premium to zero."""
+    floor = data["anchors"]["saf_premium_floor_ratio"]
+    for pct in (0.02, 0.05):
+        p = scenario(data, catalytic_pct=pct).pathway
+        assert (p["learning_factor"] >= floor - 1e-12).all()
+    # and the affine form still returns exactly 1.0 when nothing is spent
+    assert (scenario(data, catalytic_pct=0.0).pathway["learning_factor"] == 1.0).all()
+
+
+def test_alaska_captures_only_the_share_of_the_market_it_buys(data):
+    """Capacity built with Alaska's money serves everyone; it cannot book the whole decline."""
+    p = scenario(data, catalytic_pct=0.02).pathway.set_index("year")
+    assert 0 < p.loc[2040, "catalytic_capture"] < 1.0
+    full = saf_mod.learning_factor(1e10, 1e9, 1.0, data["anchors"])
+    part = saf_mod.learning_factor(1e10, 1e9, 0.25, data["anchors"])
+    assert part > full                                          # less captured, less discount
+    assert saf_mod.learning_factor(1e10, 1e9, 0.0, data["anchors"]) == 1.0
+
+
+def test_carbon_price_escalates_from_its_default(data):
+    """The planning price now grows by default; 0% is the workbook fixture, not the default."""
+    rising = scenario(data).pathway.set_index("year")["carbon_price"]
     assert rising.loc[2025] == pytest.approx(200)
-    assert rising.loc[2040] == pytest.approx(200 * 1.033 ** 15, rel=1e-12)
+    assert rising.loc[2040] > rising.loc[2025]
+    flat = scenario(data, carbon_escalation=0.0).pathway.set_index("year")["carbon_price"]
+    assert flat.nunique() == 1 and flat.iloc[0] == 200
 
 
-def test_learning_and_escalation_move_the_two_prices_apart(data):
-    """Why the discount is asymmetric: a symmetric one could never flip the ordering."""
-    r = scenario(data, catalytic_pct=0.02, carbon_escalation=0.033).pathway.set_index("year")
-    assert r.loc[2040, "saf_cost_per_tonne"] < r.loc[2040, "carbon_price"]
-    assert r.loc[2025, "saf_cost_per_tonne"] > r.loc[2025, "carbon_price"]
+def test_offsets_stay_the_cheaper_tonne_once_the_buy_down_is_honest(data):
+    """With Wright's law and capture scaling, SAF no longer crosses below the carbon price."""
+    r = scenario(data, catalytic_pct=0.02).pathway.set_index("year")
+    assert r.loc[2040, "saf_cost_per_tonne"] > r.loc[2040, "carbon_price"]
 
 
 def test_saf_cost_per_tonne_tracks_the_jet_fuel_price(data):
@@ -370,6 +391,26 @@ def test_scenario_beats_bau_at_default_settings(data):
     assert scenario(data).outcome_2030["reduction"] > bau_reference()["reduction_2030"]
 
 
+def test_milestones_carry_absolute_tonnes_not_just_intensity(data):
+    """Intensity is a ratio; the atmosphere sees tonnes. Both must reach the UI."""
+    cons = preset_scenarios()["conservative"]["result"]
+    m30 = cons.milestones[2030]
+    assert m30["state"] == "meets"                      # intensity target: met
+    assert m30["residual_vs_base"] > 0                  # and yet emissions are up
+    assert m30["absolute_state"] == "below"             # which the tile must render as bad
+    allin = preset_scenarios()["all_in"]["result"].milestones[2030]
+    assert allin["residual_vs_base"] < 0 and allin["absolute_state"] == "meets"
+
+
+def test_cost_per_tonne_abated_favours_the_pathway_that_actually_abates(data):
+    """Framing-independent metric: All-In loses on total cost and wins on this."""
+    from model import abatement_economics
+    out = {n: abatement_economics(run_scenario(preset_inputs(n, data), data).pathway)
+           for n in ("conservative", "all_in")}
+    assert out["all_in"]["cost_per_tonne_abated"] < out["conservative"]["cost_per_tonne_abated"]
+    assert out["all_in"]["cumulative_abated_vs_bau"] > 5 * out["conservative"]["cumulative_abated_vs_bau"]
+
+
 # --- the delay hypothesis -----------------------------------------------------
 #
 # "Being conservative costs less to reach 2030, but more to reach net zero by 2040."
@@ -387,26 +428,34 @@ def test_conservative_is_cheaper_to_reach_2030(data):
            _annual(data, "all_in").loc[:2030].sum()
 
 
-def test_all_in_is_cheaper_by_2040(data):
-    """Second half: the early spend repays, and with room to spare."""
-    cons, allin = _annual(data, "conservative"), _annual(data, "all_in")
-    assert allin.sum() < cons.sum()
-    assert (cons.sum() - allin.sum()) / cons.sum() > 0.10      # by more than 10%
+def test_conservative_is_also_cheaper_by_2040(data):
+    """Second half FAILS. Corrected, the early spend never repays.
+
+    It repaid only while the buy-down was ~146x too strong and Alaska booked 100% of a
+    price decline it had funded a quarter of. On Wright's law, scaled to what Alaska
+    actually buys, All-In stays more expensive to the end of the horizon.
+    """
+    cons, allin = _annual(data, "conservative").sum(), _annual(data, "all_in").sum()
+    assert allin > cons
+    assert (allin - cons) / cons > 0.05
 
 
-def test_all_in_annual_cost_falls_while_conservative_rises(data):
-    """The mechanism behind the flip: one pathway's bill shrinks, the other's grows."""
-    cons, allin = _annual(data, "conservative"), _annual(data, "all_in")
-    assert allin.loc[2040] < allin.loc[2030]
-    assert cons.loc[2040] > cons.loc[2030]
+def test_all_in_buys_far_more_abatement_per_dollar(data):
+    """The claim that DOES survive every correction and every framing.
 
-
-def test_annual_crossover_precedes_the_cumulative_one(data):
-    """All-In gets cheaper per year well before it has repaid its head start."""
-    cons, allin = _annual(data, "conservative"), _annual(data, "all_in")
-    annual = next(y for y, d in (allin - cons).items() if d < 0)
-    cumulative = next(y for y, d in (allin.cumsum() - cons.cumsum()).items() if d < 0)
-    assert annual < cumulative <= 2040
+    All-In loses on total cost and wins decisively on what the money buys: roughly ten
+    times the cumulative abatement at a materially lower cost per tonne. This needs no
+    carbon-price forecast, so no escalation assumption can manufacture or destroy it.
+    """
+    bau = bau_reference()["pathway"].set_index("year")["residual_emis"].sum()
+    out = {}
+    for name in ("conservative", "all_in"):
+        p = run_scenario(preset_inputs(name, data), data).pathway
+        spend = (p["net_saf_premium"] + p["catalytic_investment"]).sum()
+        out[name] = (bau - p["residual_emis"].sum(), spend)
+    (c_ab, c_sp), (a_ab, a_sp) = out["conservative"], out["all_in"]
+    assert a_ab > 5 * c_ab                          # far more tonnes
+    assert a_sp / a_ab < c_sp / c_ab                # at a lower price per tonne
 
 
 def test_more_catalytic_capital_is_not_always_better(data):

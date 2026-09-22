@@ -66,6 +66,11 @@ def money(x):
     return f"${x/1e9:,.2f}B" if abs(x) >= 1e9 else f"${x/1e6:,.0f}M"
 
 
+def md_money(x):
+    r"""Same figure, safe for st.caption: two bare $ in one markdown block become LaTeX."""
+    return money(x).replace("$", r"\$")
+
+
 def tile(label, value, sub, state=None):
     colour = viz.STATE_COLOR.get(state, viz.INK)
     icon = f"{viz.STATE_ICON[state]} " if state else ""
@@ -134,19 +139,6 @@ scn = SCENARIOS[choice or "custom"]     # segmented_control returns None when de
 inputs, result = scn["inputs"], scn["result"]
 o30, p40, f40 = result.outcome_2030, result.physical_2040, result.financial_2040
 
-st.caption(f"**{scn['label']}** — {scn['note']}"
-           + ("" if scn["key"] == "custom" else
-              "  *The sidebar shows this strategy's values; moving any of them switches "
-              "to Custom.*"))
-
-econ = abatement_economics(result.pathway)
-st.caption(
-    f"Over 2025–2040 this pathway keeps **{econ['cumulative_abated_vs_bau']/1e6:,.1f} Mt** "
-    f"out of the air versus business as usual, for **{money(econ['abatement_spend'])}** of "
-    f"abatement spend — **${econ['cost_per_tonne_abated']:,.0f} per tonne actually abated**. "
-    f"That figure needs no carbon price and no discounting, so unlike the totals below it "
-    f"cannot be moved by a framing choice.")
-
 left, right = st.columns(2, gap="medium")
 for column, year in ((left, 2030), (right, 2040)):
     with column:
@@ -181,6 +173,18 @@ with chart_right:
     with st.container(key="cost"):
         st.plotly_chart(viz.offset_and_cost(result.pathway, scn["label"]),
                         width="stretch", config={"displayModeBar": False})
+
+econ = abatement_economics(result.pathway)
+st.caption(
+    f"**{scn['label']}** — {scn['note']}"
+    + ("" if scn["key"] == "custom" else
+       " *The sidebar shows this strategy's values; moving any of them switches to Custom.*"))
+st.caption(
+    f"Over 2025–2040 this pathway keeps **{econ['cumulative_abated_vs_bau']/1e6:,.1f} Mt** out "
+    f"of the air versus business as usual, for **{md_money(econ['abatement_spend'])}** of "
+    f"abatement spend — **\\${econ['cost_per_tonne_abated']:,.0f} per tonne actually abated**. "
+    f"That needs no carbon price and no discounting, so unlike the totals it cannot be moved "
+    f"by a framing choice.")
 
 need = o30["required_saf_share"]
 y30, y40 = (result.pathway.set_index("year").loc[y] for y in (2030, 2040))

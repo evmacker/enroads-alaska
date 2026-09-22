@@ -21,9 +21,18 @@ def scenario(data, **overrides):
 
 @pytest.mark.parametrize("reduction, state", [
     (0.05, "below"), (0.0999, "below"), (0.10, "meets"), (0.14, "meets"), (0.20, "exceeds"),
+    (0.09999999999999998, "meets"),   # solved-for floor, a float hair under
+    (0.14000000000000001, "meets"),   # and the same at the top edge
 ])
 def test_band_states(reduction, state):
     assert classify_2030(reduction)["state"] == state
+
+
+def test_conservative_meets_the_floor_it_was_solved_for(data):
+    """It lands 2.8e-17 under 10%; reporting that as a miss would be a rounding artefact."""
+    outcome = preset_scenarios()["conservative"]["result"].outcome_2030
+    assert outcome["state"] == "meets"
+    assert "Meets target" in outcome["label"]
 
 
 def test_more_saf_moves_2030_through_the_band(data):

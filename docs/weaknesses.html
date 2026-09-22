@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Where This Model Breaks</title>
+<style>
+:root{
+  --bg:#fcfcfb; --surface:#fff; --ink:#0b0b0b; --muted:#52514e; --grid:#e6e5e1;
+  --blue:#2a78d6; --orange:#eb6834; --aqua:#1baf7a; --red:#d03b3b; --warn:#fab219;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#131313; --surface:#1b1b1b; --ink:#f2f1ee; --muted:#a6a49f; --grid:#333230;
+    --blue:#6ea8ef; --orange:#f5906a; --aqua:#46c894; --red:#e86b6b; --warn:#d9a231;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#131313; --surface:#1b1b1b; --ink:#f2f1ee; --muted:#a6a49f; --grid:#333230;
+  --blue:#6ea8ef; --orange:#f5906a; --aqua:#46c894; --red:#e86b6b; --warn:#d9a231;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--bg); color:var(--ink);
+  font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:52rem; margin:0 auto; padding:3rem 16px 5rem}
+h1{font-size:1.9rem; line-height:1.2; margin:0 0 .4rem; letter-spacing:-.02em}
+h2{font-size:1.2rem; margin:3rem 0 1rem; letter-spacing:-.01em;
+   padding-bottom:.4rem; border-bottom:1px solid var(--grid); color:var(--muted);
+   text-transform:uppercase; font-size:.78rem; letter-spacing:.08em}
+.lede{color:var(--muted); font-size:1.05rem; margin:0 0 .5rem}
+.meta{color:var(--muted); font-size:.82rem; font-family:var(--mono)}
+code{font-family:var(--mono); font-size:.86em; background:var(--grid);
+     padding:.1em .35em; border-radius:4px}
+pre{background:var(--surface); border:1px solid var(--grid); border-radius:8px;
+    padding:.85rem; overflow-x:auto; font-family:var(--mono); font-size:.8rem;
+    line-height:1.55; margin:.85rem 0}
+.item{background:var(--surface); border:1px solid var(--grid); border-radius:10px;
+      padding:1.1rem 1.2rem; margin:1rem 0; border-left:3px solid var(--grid)}
+.item.fatal{border-left-color:var(--red)}
+.item.circular{border-left-color:var(--orange)}
+.item.framing{border-left-color:var(--warn)}
+.item.gap{border-left-color:var(--blue)}
+.item h3{margin:0 0 .5rem; font-size:1.02rem; line-height:1.35}
+.item p{margin:.5rem 0; font-size:.93rem}
+.item p:last-child{margin-bottom:0}
+.tag{display:inline-block; font-size:.66rem; font-family:var(--mono); font-weight:600;
+     padding:.12rem .45rem; border-radius:20px; letter-spacing:.04em; vertical-align:middle;
+     margin-left:.4rem; text-transform:uppercase}
+.tag.fatal{background:var(--red); color:#fff}
+.tag.circular{background:var(--orange); color:#fff}
+.tag.framing{background:var(--warn); color:#3a2c00}
+.tag.gap{background:var(--blue); color:#fff}
+.fig{font-family:var(--mono); font-size:.86rem; color:var(--ink);
+     background:var(--bg); border:1px solid var(--grid); border-radius:6px;
+     padding:.5rem .7rem; display:inline-block; margin:.35rem .35rem .35rem 0}
+.fig b{color:var(--red)}
+.verdict{font-size:.88rem; color:var(--muted); border-top:1px dashed var(--grid);
+         padding-top:.6rem; margin-top:.75rem}
+.verdict b{color:var(--ink)}
+.note{background:var(--surface); border:1px solid var(--grid); border-radius:10px;
+      padding:.9rem 1rem; margin:1.5rem 0; font-size:.9rem; color:var(--muted)}
+.note b{color:var(--ink)}
+table{width:100%; border-collapse:collapse; margin:.85rem 0; font-size:.85rem}
+th{text-align:left; color:var(--muted); font-size:.72rem; text-transform:uppercase;
+   letter-spacing:.04em; padding:.45rem .5rem; border-bottom:1px solid var(--grid)}
+td{padding:.5rem; border-bottom:1px solid var(--grid)}
+tr:last-child td{border-bottom:none}
+@media(max-width:600px){ .wrap{padding-top:2rem} h1{font-size:1.5rem} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Where This Model Breaks</h1>
+<p class="lede">An honest inventory of the weakest assumptions in the Alaska Airlines
+decarbonization explorer &mdash; the things most likely to be wrong, and the things that
+would change the answer if they were.</p>
+<p class="meta">Companion to <code>docs/variables.html</code></p>
+
+<div class="note">
+<b>Why this document exists.</b> The engine reproduces the source workbook to
+<code>rel=1e-9</code>, which makes it a verified port. It does not make it a good model.
+Parity guarantees the arithmetic; it guarantees nothing about the assumptions. The items
+below are ordered by how badly they would damage a conclusion drawn from this tool.
+</div>
+
+<h2>Fatal &mdash; the result does not survive these</h2>
+
+<div class="item fatal">
+<h3>1. The residual cannot actually be bought<span class="tag fatal">fatal</span></h3>
+<p>Every scenario reaches "net zero" in 2040 because <code>neutralization_share = 1.00</code>
+neutralizes the whole residual at the planning price. That is an accounting entry, not a
+procurement plan.</p>
+<span class="fig">All-In 2040 residual <b>3.52 Mt</b></span>
+<span class="fig">Conservative <b>12.65 Mt</b></span>
+<span class="fig">Whole observed durable removal market <b>1.88 Mt</b></span>
+<p>Alaska alone would need roughly <b>twice</b> the entire observed durable removal market on
+the All-In path, and <b>seven times</b> it on the Conservative one &mdash; for one airline
+carrying about 3% of US capacity. The app's own carbon-market tab says as much when growth
+is left at 0%, then the model charges the purchase anyway and reports net zero.</p>
+<p class="verdict"><b>Effect:</b> the phrase "net zero 2040" in this tool means "we priced
+the residual", not "we could buy it". Any cost comparison that leans on offsets being
+available at the planning price is unsafe.</p>
+</div>
+
+<div class="item fatal">
+<h3>2. The SAF buy-down has no floor<span class="tag fatal">fatal</span></h3>
+<pre>SAF premium(t) = market premium(t) x (1 - 0.01) ^ (cumulative CVC(t) / $50M)</pre>
+<p>Nothing bounds this below. Push catalytic capital to its 5% slider maximum and
+$13.80B of cumulative investment drives the multiplier to 0.0624:</p>
+<span class="fig">SAF $3.16/gal vs jet $2.97/gal &mdash; a <b>6% premium</b></span>
+<span class="fig">SAF abatement <b>$20/t</b></span>
+<p>SAF has a cost of production that cannot fall to near-parity with fossil jet fuel no
+matter how much capital arrives. The curve should asymptote to a floor; it decays to zero.</p>
+<p class="verdict"><b>Effect:</b> every conclusion at high <code>catalytic_pct</code> is
+fantasy. The 2% used by All-In is already a 67% premium cut, which is aggressive.</p>
+</div>
+
+<div class="item fatal">
+<h3>3. <code>r</code> = 1% per $50M is invented<span class="tag fatal">fatal</span></h3>
+<p>The learning rate and its $50M tranche have no citation, no literature anchor and no
+empirical basis anywhere in this repo. They were chosen in conversation. They are the
+single largest determinant of whether investing early pays off:</p>
+<table>
+<tr><th>Rate</th><th>2040 SAF price</th><th>Does All-In beat Conservative?</th></tr>
+<tr><td>0 (no buy-down)</td><td>$324/t</td><td>No, and it never can</td></tr>
+<tr><td>1% / $50M (as shipped)</td><td>$107/t</td><td>Yes, by $6.48B</td></tr>
+</table>
+<p class="verdict"><b>Effect:</b> the headline finding is a function of an unsourced
+parameter. This is the first number to attack, and the first to replace with something
+defensible.</p>
+</div>
+
+<div class="item fatal">
+<h3>4. Alaska takes a quarter of US SAF supply<span class="tag fatal">fatal</span></h3>
+<span class="fig">All-In 2040: <b>1.22B gal</b> of <b>4.98B gal</b> available &mdash; <b>24.4%</b></span>
+<p>Alaska is roughly 3% of US airline capacity. The model lets it consume eight times its
+proportional share because there are no other buyers in it. There is no competition for
+supply, no price response to demand, and no allocation mechanism. The supply constraint
+binds only against Alaska's own appetite.</p>
+<p class="verdict"><b>Effect:</b> All-In's physical pathway is not feasible in a market
+containing other airlines. It describes a world where Alaska is the only bidder.</p>
+</div>
+
+<h2>Circular &mdash; the model assumes part of its own conclusion</h2>
+
+<div class="item circular">
+<h3>5. Alaska's investment discounts only Alaska's price<span class="tag circular">circular</span></h3>
+<p>Catalytic capital builds <em>public</em> SAF capacity, then hands <em>Alaska alone</em>
+the resulting price decline. In reality, capacity investment lowers the market clearing
+price for every buyer, and the investor captures a share roughly proportional to its own
+purchases &mdash; a few percent, not all of it.</p>
+<p>So the mechanism reads: spend money &rarr; your own input price falls &rarr; you look
+efficient. The benefit of a public good is booked privately, with no spillover and no
+free-riding by competitors.</p>
+<p class="verdict"><b>Effect:</b> the return on catalytic capital is overstated by roughly
+the reciprocal of Alaska's market share. This is the most structurally circular part of
+the model.</p>
+</div>
+
+<div class="item circular">
+<h3>6. The carbon escalation rate was reverse-engineered<span class="tag circular">circular</span></h3>
+<p>Both strategies use <code>carbon_escalation = 3.3%/yr</code>. That rate was not taken
+from a forecast. It was <em>solved for</em>: it is the rate that lifts $200/t to SAF's
+undiscounted $324/t by 2040 &mdash; that is, the rate that makes the two price lines cross.</p>
+<p class="verdict"><b>Effect:</b> the crossing is partly assumed rather than discovered.
+3.3%/yr is not implausible for carbon prices, which is the only reason this is
+uncomfortable rather than disqualifying.</p>
+</div>
+
+<h2>Framing &mdash; the same model gives opposite answers</h2>
+
+<div class="item framing">
+<h3>7. Intensity can improve while emissions rise<span class="tag framing">framing</span></h3>
+<p>The 2030 target is an <em>intensity</em> reduction per revenue tonne mile. Under business
+as usual the model reports:</p>
+<span class="fig">intensity <b>15.2% better</b> by 2040</span>
+<span class="fig">absolute emissions <b>10.46 &rarr; 13.54 Mt (+29.4%)</b></span>
+<p>Growth outruns efficiency. The headline KPI tile can read green while the airline emits
+a third more carbon than when it started.</p>
+<p class="verdict"><b>Effect:</b> "meets target" is not "is decarbonizing". The app shows
+absolute tonnes on the second chart, but the 2030 verdict is intensity-only because the
+target is.</p>
+</div>
+
+<div class="item framing">
+<h3>8. Which strategy wins depends on how you count<span class="tag framing">framing</span></h3>
+<table>
+<tr><th>Framing</th><th>Conservative</th><th>All-In</th><th>Winner</th></tr>
+<tr><td>Neutralize every year (used in the review)</td><td>$50.86B</td><td>$44.38B</td><td>All-In by $6.48B</td></tr>
+<tr><td>Model's own <code>closure_cost</code>, 2040 only</td><td>$7.11B</td><td>$21.54B</td><td>Conservative, hugely</td></tr>
+</table>
+<p>The second is a workbook convention that parity depends on: it charges carbon exactly
+once, in 2040, so sixteen years of SAF premium are weighed against a single year of offsets.
+That is structurally biased against acting early.</p>
+<p class="verdict"><b>Effect:</b> a reader could take either conclusion from this repo
+depending on which column they read. The choice is stated in the docs rather than
+buried, but it is doing enormous work.</p>
+</div>
+
+<h2>Gaps &mdash; things simply not modeled</h2>
+
+<div class="item gap">
+<h3>9. Three levers are free<span class="tag gap">gap</span></h3>
+<p>Fleet renewal, ground electrification and novel propulsion carry <b>zero capex</b>.
+Take All-In, strip its operational levers out, then put fleet renewal at 50% and ground
+electrification at 100% back in:</p>
+<span class="fig">no ops levers: <b>$46.22B</b>, 76.1% reduction</span>
+<span class="fig">fleet 50% + ground 100%: <b>$44.11B</b>, 78.5% reduction</span>
+<p>Cheaper <em>and</em> more abatement, because the levers cut fuel burn and therefore the
+SAF volume that has to be bought, while costing nothing to install. That is an artifact of
+the missing capital cost, not a finding. Any optimizer run against this model maxes all
+three immediately.</p>
+</div>
+
+<div class="item gap">
+<h3>10. Excluded costs and scopes<span class="tag gap">gap</span></h3>
+<table>
+<tr><th>Excluded</th><th>Why it matters</th></tr>
+<tr><td>Scope 3 emissions</td><td>The large majority of an airline's value-chain footprint</td></tr>
+<tr><td>CORSIA compliance cost</td><td>A mandatory, real cost. The $59/t midpoint appears as a reference and is never charged</td></tr>
+<tr><td>Fleet / ground / propulsion capex</td><td>See above</td></tr>
+<tr><td>Fuel-price pass-through to fares</td><td>Revenue tracks activity only, so a fuel shock cuts margin with no pricing response</td></tr>
+</table>
+</div>
+
+<div class="item gap">
+<h3>11. SAF lifecycle reduction is fixed at 80%<span class="tag gap">gap</span></h3>
+<p>One constant for all SAF, at any volume, from any feedstock. Real pathways range from
+roughly 50% to 90%, and the cheap high-performing feedstocks are the first to be exhausted.
+At All-In's 1.22B gal/yr, the marginal gallon would almost certainly perform worse than the
+first. The model has no feedstock quality curve and no indirect land-use effect.</p>
+<p class="verdict"><b>Effect:</b> every SAF abatement figure is optimistic at high volume,
+and <code>tonnes_avoided_per_saf_gallon</code> &mdash; which divides every cost-per-tonne
+in the app &mdash; inherits the error.</p>
+</div>
+
+<div class="item gap">
+<h3>12. Partner share has no ceiling and no double-count check<span class="tag gap">gap</span></h3>
+<p><code>partner_share</code> shifts premium cost to third parties, up to 100%, with nothing
+verifying that those parties exist, that the volume is available, or that the same tonne is
+not also claimed by the corporate buyer under a book-and-claim scheme. At 100% the SAF is
+free to Alaska and the abatement is still counted as Alaska's.</p>
+</div>
+
+<div class="item gap">
+<h3>13. A hidden input still drives an output<span class="tag gap">gap</span></h3>
+<p><code>investable_pct</code> was removed from the sidebar and pinned at 3%. It no longer
+appears anywhere on the page, but it still governs <code>financial_2040</code>'s
+cash-headroom verdict and <code>viz.budget_bar</code>. A live judgement rests on a number
+no user can see or change.</p>
+</div>
+
+<h2>Numerical</h2>
+
+<div class="item">
+<h3>14. Band classification is precision-blind near the edge</h3>
+<p>A genuine 9.99% reduction displays as "10.0%" but is classified <em>below</em> target,
+producing the label "Below target (10.0% vs 10% floor)". Only the float-noise case is
+handled, by a 1e-9 tolerance added so that a pathway solved to land exactly on the floor
+&mdash; which arrives at 0.09999999999999998 &mdash; is not reported as missing it.</p>
+<p class="verdict"><b>Effect:</b> cosmetic, but the label can contradict the number beside it.</p>
+</div>
+
+<h2>If you only fix three things</h2>
+<div class="note">
+<p><b>1. Put a floor under the SAF buy-down</b> at a defensible cost of production, and
+source the learning rate. These two together decide the headline finding.</p>
+<p><b>2. Cap Alaska's market capture</b> at something near its share of US capacity, or
+state loudly that the pathway assumes no competing demand.</p>
+<p><b>3. Decide whether the residual is purchasable</b> and say so. If durable removals
+cannot scale to 3.52 Mt for one airline, then "net zero 2040" needs either a different
+instrument or a different name.</p>
+</div>
+
+<p class="meta" style="margin-top:2.5rem">Figures produced from the model at the committed
+strategy definitions. Reproduce with <code>python -m pytest tests -q</code> and the
+scenarios in <code>config/assumptions.yaml</code>.</p>
+
+</div>
+</body>
+</html>

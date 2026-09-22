@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Variables &amp; Dependencies</title>
+<style>
+:root{
+  --bg:#fcfcfb; --surface:#fff; --ink:#0b0b0b; --muted:#52514e; --grid:#e6e5e1;
+  --blue:#2a78d6; --orange:#eb6834; --aqua:#1baf7a; --band:#cde2fb; --warn:#fab219;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#131313; --surface:#1b1b1b; --ink:#f2f1ee; --muted:#a6a49f; --grid:#333230;
+    --blue:#6ea8ef; --orange:#f5906a; --aqua:#46c894; --band:#1e3556; --warn:#d9a231;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#131313; --surface:#1b1b1b; --ink:#f2f1ee; --muted:#a6a49f; --grid:#333230;
+  --blue:#6ea8ef; --orange:#f5906a; --aqua:#46c894; --band:#1e3556; --warn:#d9a231;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:52rem; margin:0 auto; padding:3rem 16px 5rem}
+h1{font-size:1.9rem; line-height:1.2; margin:0 0 .4rem; letter-spacing:-.02em}
+h2{font-size:1.25rem; margin:3rem 0 .75rem; letter-spacing:-.01em;
+   padding-bottom:.4rem; border-bottom:1px solid var(--grid)}
+h3{font-size:1rem; margin:2rem 0 .5rem; color:var(--ink)}
+p,li{color:var(--ink)}
+.lede{color:var(--muted); font-size:1.05rem; margin:0 0 .5rem}
+.meta{color:var(--muted); font-size:.82rem; font-family:var(--mono)}
+code{font-family:var(--mono); font-size:.86em; background:var(--grid);
+     padding:.1em .35em; border-radius:4px}
+pre{background:var(--surface); border:1px solid var(--grid); border-radius:10px;
+    padding:1rem; overflow-x:auto; font-family:var(--mono); font-size:.82rem;
+    line-height:1.6; color:var(--ink)}
+table{width:100%; border-collapse:collapse; margin:1rem 0; font-size:.88rem}
+th{text-align:left; font-weight:600; color:var(--muted); font-size:.75rem;
+   text-transform:uppercase; letter-spacing:.04em; padding:.5rem .6rem;
+   border-bottom:1px solid var(--grid)}
+td{padding:.55rem .6rem; border-bottom:1px solid var(--grid); vertical-align:top}
+tr:last-child td{border-bottom:none}
+td code{background:none; padding:0; color:var(--blue); font-weight:600}
+.pill{display:inline-block; font-size:.68rem; font-family:var(--mono);
+      padding:.1rem .4rem; border-radius:20px; border:1px solid var(--grid);
+      color:var(--muted); white-space:nowrap}
+.pill.new{border-color:var(--orange); color:var(--orange)}
+.pill.hidden{border-color:var(--warn); color:var(--warn)}
+.flow{display:flex; flex-direction:column; gap:.5rem; margin:1.25rem 0}
+.step{background:var(--surface); border:1px solid var(--grid); border-left:3px solid var(--blue);
+      border-radius:8px; padding:.7rem .9rem}
+.step b{font-size:.82rem; font-family:var(--mono); color:var(--blue)}
+.step p{margin:.2rem 0 0; font-size:.86rem; color:var(--muted)}
+.step.gate{border-left-color:var(--orange)} .step.gate b{color:var(--orange)}
+.step.out{border-left-color:var(--aqua)} .step.out b{color:var(--aqua)}
+.note{background:var(--surface); border:1px solid var(--grid); border-radius:10px;
+      padding:.9rem 1rem; margin:1.25rem 0; font-size:.9rem; color:var(--muted)}
+.note b{color:var(--ink)}
+a{color:var(--blue)}
+@media(max-width:600px){ .wrap{padding-top:2rem} h1{font-size:1.55rem} table{font-size:.82rem} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Variables &amp; Dependencies</h1>
+<p class="lede">Every input, anchor and derived quantity in the Alaska Airlines
+decarbonization model, and the order in which they depend on each other.</p>
+<p class="meta">Engine: <code>src/model/</code> &middot; Config: <code>config/assumptions.yaml</code></p>
+
+<div class="note">
+<b>Reading this.</b> The model is deterministic and has no solver, no optimizer and no
+feedback loops. It runs strictly forward: physical scale first, then SAF, then prices,
+then money. Anything marked <span class="pill new">new</span> was added during the port
+and does <em>not</em> come from <code>Alaska_Airlines_Model_Revenue_Anchored_v3.xlsx</code>.
+</div>
+
+<h2>1. Observed data</h2>
+<p>Loaded from <code>data/processed/</code>, rebuilt deterministically from the source
+workbook by <code>scripts/build_data.py</code>. None of it is editable in the app.</p>
+
+<table>
+<tr><th>Quantity</th><th>Value</th><th>Source</th></tr>
+<tr><td><code>intensity_2019</code></td><td>1.3900 t/1,000 RTM</td><td>Workbook, the 2030 target baseline</td></tr>
+<tr><td><code>intensity_2025</code></td><td>1.3300 t/1,000 RTM</td><td>Workbook, the pathway's starting point</td></tr>
+<tr><td><code>base_fuel_gal</code></td><td>1.146B gal</td><td>2025 operating aircraft fuel</td></tr>
+<tr><td><code>base_saf_share</code></td><td>0.9504%</td><td>2025 operating SAF share</td></tr>
+<tr><td><code>revenue_2025</code></td><td>$14.24B</td><td>Total operating revenue</td></tr>
+<tr><td><code>ocf_2025</code></td><td>$1.20B (8.4% of revenue)</td><td>Operating cash flow</td></tr>
+<tr><td><code>jet_price_2025</code></td><td>$2.51/gal</td><td>Into-plane fuel price</td></tr>
+<tr><td><code>vehicle / facility / scope2_emis</code></td><td>&mdash;</td><td>2025 non-aircraft emissions</td></tr>
+<tr><td><code>faa_activity</code></td><td>annual index</td><td>FAA Aerospace Forecast system ASMs</td></tr>
+<tr><td><code>eia_efficiency</code>, <code>eia_fuel_price</code></td><td>annual indices</td><td>EIA Annual Energy Outlook</td></tr>
+<tr><td><code>saf_history</code></td><td>through 2025</td><td>EPA RFS renewable jet, full-year actuals</td></tr>
+<tr><td><code>removal_volume</code></td><td>1.88 Mt (2026)</td><td>Puro CORCX observed durable removals</td></tr>
+<tr><td><code>voluntary_volume</code></td><td>202 Mt (2025)</td><td>MSCI, whole voluntary market retirements</td></tr>
+</table>
+
+<h3>One derived constant</h3>
+<pre>tonnes_avoided_per_saf_gallon = 0.007336 tCO2e/gal
+
+2025 reported intensity already contains ~0.95% SAF, so it is grossed back up to a
+conventional-only basis before the 80% lifecycle reduction is applied. Every SAF
+cost-per-tonne figure in the app divides by this number.</pre>
+
+<h2>2. User inputs</h2>
+<p>Sixteen fields on <code>ScenarioInputs</code>. Fourteen are sliders; two are
+<span class="pill hidden">hidden</span> and pinned to their defaults.</p>
+
+<table>
+<tr><th>Input</th><th>Group</th><th>Default</th><th>Range</th><th>Drives</th></tr>
+<tr><td><code>saf_share_2030</code></td><td>SAF</td><td>10%</td><td>0&ndash;50%</td><td>SAF ramp to 2030</td></tr>
+<tr><td><code>saf_share_2040</code></td><td>SAF</td><td>60%</td><td>0&ndash;100%</td><td>SAF ramp 2030&rarr;2040</td></tr>
+<tr><td><code>saf_premium</code></td><td>SAF</td><td>1.00</td><td>0&ndash;3.00</td><td>SAF price over jet fuel</td></tr>
+<tr><td><code>partner_share</code></td><td>SAF</td><td>0%</td><td>0&ndash;100%</td><td>Premium shifted to third parties</td></tr>
+<tr><td><code>fleet_renewal</code></td><td>Operations</td><td>0%</td><td>0&ndash;100%</td><td>Fuel burn per ASM</td></tr>
+<tr><td><code>ground_elec</code></td><td>Operations</td><td>0%</td><td>0&ndash;100%</td><td>Vehicle Scope 1 only</td></tr>
+<tr><td><code>novel_propulsion</code></td><td>Operations</td><td>0%</td><td>0&ndash;50%</td><td>Displaces liquid-fuel activity</td></tr>
+<tr><td><code>catalytic_pct</code></td><td>Money</td><td>0%</td><td>0&ndash;5%</td><td>SAF capacity <em>and</em> <span class="pill new">new</span> premium buy-down</td></tr>
+<tr><td><code>investable_pct</code> <span class="pill hidden">hidden</span></td><td>Money</td><td>3%</td><td>0&ndash;10%</td><td>Cash-headroom test only</td></tr>
+<tr><td><code>activity_adj</code></td><td>Baselines</td><td>0%/yr</td><td>&plusmn;3%</td><td>Deviation from FAA baseline</td></tr>
+<tr><td><code>efficiency_adj</code></td><td>Baselines</td><td>0%/yr</td><td>&plusmn;2%</td><td>Deviation from EIA baseline</td></tr>
+<tr><td><code>saf_supply_case</code> <span class="pill hidden">hidden</span></td><td>Baselines</td><td>Base</td><td>Base / Conservative</td><td>Rystad 2035 anchor</td></tr>
+<tr><td><code>post_2035_growth</code></td><td>Baselines</td><td>10%/yr</td><td>0&ndash;20%</td><td>US supply past the last anchor</td></tr>
+<tr><td><code>carbon_price</code></td><td>Baselines</td><td>$200/t</td><td>$25&ndash;500</td><td>Offset and closure cost</td></tr>
+<tr><td><code>carbon_escalation</code> <span class="pill new">new</span></td><td>Baselines</td><td>0%/yr</td><td>0&ndash;10%</td><td>Real growth in the carbon price</td></tr>
+<tr><td><code>removal_growth</code></td><td>Baselines</td><td>0%/yr</td><td>0&ndash;60%</td><td>Presentational only &mdash; never constrains</td></tr>
+</table>
+
+<h2>3. Backend anchors</h2>
+<p>Not user-editable. Live in the <code>anchors</code> block of the config.</p>
+
+<table>
+<tr><th>Anchor</th><th>Value</th><th>Basis</th></tr>
+<tr><td><code>saf_lifecycle_reduction</code></td><td>0.80</td><td>Alaska: SAF cuts lifecycle emissions up to ~80%</td></tr>
+<tr><td><code>fleet_fuel_advantage</code></td><td>0.20</td><td>Newer aircraft 15&ndash;25% better per seat; midpoint proxy</td></tr>
+<tr><td><code>neutralization_share</code></td><td>1.00</td><td>All of the 2040 residual is neutralized</td></tr>
+<tr><td><code>saf_capital_intensity</code></td><td>$14.67/annual gal</td><td>DOE: &gt;$44B for &gt;3B gal/yr</td></tr>
+<tr><td><code>catalytic_lag_years</code></td><td>3</td><td>Investment &rarr; operating capacity</td></tr>
+<tr><td><code>catalytic_learning_rate</code> <span class="pill new">new</span></td><td>0.01</td><td><b>No empirical source.</b> Chosen in session</td></tr>
+<tr><td><code>catalytic_reference_spend</code> <span class="pill new">new</span></td><td>$50M</td><td><b>No empirical source.</b> Tranche size</td></tr>
+<tr><td><code>saf_2030_probable</code></td><td>2.049B gal</td><td>Peer-reviewed probable US production</td></tr>
+<tr><td><code>saf_2035_base</code> / <code>_conservative</code></td><td>2.913B / 1.686B gal</td><td>Rystad 190k / 110k bpd cases</td></tr>
+<tr><td><code>saf_2025_actual</code></td><td>0.288B gal</td><td>EPA RFS full-year actual</td></tr>
+<tr><td><code>corsia_reference_price</code></td><td>$59/t</td><td>MSCI midpoint. Reference only, never charged</td></tr>
+<tr><td><code>removal_benchmark_price</code></td><td>$200/t</td><td>Durable removal benchmark</td></tr>
+</table>
+
+<h2>4. The dependency chain</h2>
+<p>One pass per year, 2025&ndash;2040, in this order. Nothing later feeds anything earlier.</p>
+
+<div class="flow">
+<div class="step"><b>1 &nbsp;physical_year()</b>
+<p>activity &larr; FAA index &times; (1+activity_adj)<sup>n</sup> &middot; efficiency &larr; EIA index &times;
+(1+efficiency_adj)<sup>n</sup> &middot; fleet and propulsion ramp linearly to their 2040 endpoints.
+<br><b>&rarr; liquid_fuel_gal</b> = base_fuel &times; activity / efficiency &times; fleet_factor &times; (1 &minus; propulsion)</p></div>
+
+<div class="step"><b>2 &nbsp;revenue</b>
+<p>revenue_2025 &times; activity_index. Revenue tracks activity and <em>nothing else</em> &mdash;
+no yields, no fares, no fuel-price pass-through.</p></div>
+
+<div class="step"><b>3 &nbsp;catalytic_capacity()</b>
+<p>invest = revenue &times; catalytic_pct, each year. Matures after 3 years into
+extra capacity at $14.67/gal. Cumulative spend is tracked separately for step&nbsp;6.</p></div>
+
+<div class="step gate"><b>4 &nbsp;SAF supply gate</b>
+<p>target_saf_share (piecewise-linear 2025&rarr;2030&rarr;2040) sets target_saf_gal.
+US supply comes from the published anchors plus catalytic capacity.
+<br><b>effective_saf_share = min(target, available / liquid_fuel)</b> &mdash; the only
+place a constraint binds anywhere in the model.</p></div>
+
+<div class="step"><b>5 &nbsp;intensity_and_emissions()</b>
+<p>carbon_mix = 1 &minus; effective_saf_share &times; 0.80, normalised by the 2025 mix.
+<br>intensity = intensity_2025 / efficiency &times; fleet_factor &times; (carbon_mix / baseline_mix) &times; (1 &minus; propulsion)
+<br><b>&rarr; reduction_vs_2019, residual_emis</b> (aircraft + vehicle + facility + Scope 2)</p></div>
+
+<div class="step gate"><b>6 &nbsp;the two prices</b> <span class="pill new">new</span>
+<p>SAF premium = market premium &times; (1 &minus; 0.01)<sup>cumulative CVC / $50M</sup> &mdash; falls with money deployed.
+<br>carbon price = base &times; (1 + escalation)<sup>t&minus;2025</sup> &mdash; rises with time.
+<br>They move for different reasons and in opposite directions. Both are inert at their defaults.</p></div>
+
+<div class="step out"><b>7 &nbsp;money</b>
+<p>net_saf_premium from fuel_costs() &middot; offset_cost = residual &times; carbon price
+&middot; saf_cost_per_tonne = jet &times; premium &times; (1 &minus; partner) / 0.007336
+<br><b>&rarr; annual_cost</b> = net_saf_premium + catalytic_investment + offset_cost</p></div>
+</div>
+
+<div class="note">
+<b>What depends on what, in one line.</b> Activity and efficiency set fuel burn. Fuel burn
+and SAF share set emissions. Emissions and the carbon price set the offset bill. Cumulative
+investment sets the SAF price. Nothing sets activity except the FAA baseline and one slider.
+</div>
+
+<h2>5. Quantities that do <em>not</em> depend on what you might expect</h2>
+<table>
+<tr><th>Quantity</th><th>Independent of</th><th>Why</th></tr>
+<tr><td><code>saf_cost_per_tonne</code></td><td>How much SAF you buy</td><td>It is a price, not a total. Twice the SAF buys twice the abatement at twice the cost, so the share cancels</td></tr>
+<tr><td><code>intensity</code></td><td>Every price and every budget</td><td>Physical levers only. Money cannot move the projection chart</td></tr>
+<tr><td><code>carbon_supply</code></td><td>Everything downstream</td><td>Presentational. Carbon supply never constrains the model</td></tr>
+<tr><td><code>revenue</code></td><td>Fuel cost, SAF spend, carbon price</td><td>Tracks activity alone</td></tr>
+<tr><td>Reference pathways</td><td>Every sidebar slider</td><td>Computed from fixed input sets, which is what makes them references</td></tr>
+</table>
+
+<h2>6. Where the numbers live</h2>
+<table>
+<tr><th>File</th><th>Holds</th></tr>
+<tr><td><code>config/assumptions.yaml</code></td><td>Input defaults and bounds, backend anchors, the three strategy definitions, source citations</td></tr>
+<tr><td><code>src/model/emissions.py</code></td><td>Activity, efficiency, fuel, SAF blend, intensity, residual emissions</td></tr>
+<tr><td><code>src/model/saf.py</code></td><td>US supply anchors, catalytic capacity, the premium buy-down</td></tr>
+<tr><td><code>src/model/finance.py</code></td><td>Fuel costs, carbon price path, closure cost, abatement cost, headroom</td></tr>
+<tr><td><code>src/model/targets.py</code></td><td>Band classification &mdash; the only place target logic lives</td></tr>
+<tr><td><code>src/model/core.py</code></td><td>Orchestration, the strategy presets, the BAU reference</td></tr>
+<tr><td><code>app.py</code></td><td>Presentation only. Calls <code>run_scenario</code> exactly once, enforced by a test</td></tr>
+</table>
+
+<p class="meta" style="margin-top:3rem">See <code>docs/weaknesses.html</code> for where this
+structure is thin, and <code>docs/model_decisions.md</code> for the decisions behind it.</p>
+
+</div>
+</body>
+</html>

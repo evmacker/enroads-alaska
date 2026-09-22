@@ -65,11 +65,22 @@ docs/                sources and model decisions
 The engine imports nothing from Streamlit, and `app.py` calls `run_scenario` exactly
 once per rerun and draws the result. `tests/test_app.py` enforces both.
 
+## Documentation
+
+| Document | Covers |
+|---|---|
+| `docs/variables.html` | Every input, anchor and derived quantity, and the order they depend on each other |
+| `docs/weaknesses.html` | Where the model breaks — the assumptions most likely to be wrong, worst first |
+| `docs/model_decisions.md` | Decisions carried from the workbook vs made during the port, and the delay-hypothesis review |
+| `docs/sources.md` | Citations for every published anchor |
+
+The two HTML documents are standalone — open them in a browser, they are not part of the app.
+
 ## Tests
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest tests -q      # 110 tests
+python -m pytest tests -q      # 113 tests
 ```
 
 `tests/test_parity.py` reproduces every column of the workbook's `Model` sheet for every

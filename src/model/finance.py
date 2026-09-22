@@ -23,6 +23,15 @@ def carbon_price_path(year, base_price, escalation, base_year):
     return base_price * (1 + escalation) ** (year - base_year)
 
 
+def saf_premium_path(year, base_premium, decline, base_year):
+    """Market SAF premium shrinking with industry-wide learning.
+
+    NEW, not from the workbook, which holds the premium flat. At decline = 0 this returns
+    that flat premium unchanged, which is what keeps parity.
+    """
+    return base_premium * (1 - decline) ** (year - base_year)
+
+
 def closure_cost(residual_emis, carbon_price, neutralization_share):
     return residual_emis * carbon_price * neutralization_share
 

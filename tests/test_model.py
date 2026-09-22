@@ -260,7 +260,7 @@ def test_catalytic_capital_buys_a_price_on_the_volume_it_funded(data):
     off = scenario(data, catalytic_pct=0.0).pathway.set_index("year")
     on = scenario(data, catalytic_pct=0.02).pathway.set_index("year")
     assert (off["offtake_share"] == 0.0).all()                 # inert when nothing is spent
-    assert (off["effective_saf_premium"] == 1.0).all()
+    assert (off["effective_saf_premium"] == off["market_saf_premium"]).all()
     assert on.loc[2040, "offtake_share"] > 0.2
     assert on.loc[2040, "saf_cost_per_tonne"] < off.loc[2040, "saf_cost_per_tonne"]
 
@@ -270,7 +270,7 @@ def test_the_discount_never_reaches_fuel_alaska_did_not_fund(data):
     a, on = data["anchors"], scenario(data, catalytic_pct=0.02).pathway.set_index("year")
     for year in (2030, 2040):
         r = on.loc[year]
-        expected = 1.0 * (1 - r["offtake_share"] * (1 - a["offtake_premium_ratio"]))
+        expected = r["market_saf_premium"] * (1 - r["offtake_share"] * (1 - a["offtake_premium_ratio"]))
         assert r["effective_saf_premium"] == pytest.approx(expected, rel=1e-12)
 
 
@@ -279,7 +279,7 @@ def test_the_offtake_ratio_is_a_structural_floor(data):
     ratio = data["anchors"]["offtake_premium_ratio"]
     for pct in (0.02, 0.05):
         p = scenario(data, catalytic_pct=pct).pathway
-        assert (p["effective_saf_premium"] >= ratio - 1e-12).all()
+        assert (p["effective_saf_premium"] >= ratio * p["market_saf_premium"] - 1e-12).all()
     assert saf_mod.contracted_premium(1.0, 1.0, data["anchors"]) == pytest.approx(ratio)
     assert saf_mod.contracted_premium(1.0, 0.0, data["anchors"]) == 1.0
 
@@ -292,6 +292,15 @@ def test_you_cannot_contract_more_than_you_burn(data):
     assert (scenario(data, catalytic_pct=0.05).pathway["offtake_share"] <= 1.0).all()
 
 
+def test_saf_premium_declines_from_its_default(data):
+    """The market premium now falls by default; 0% is the workbook fixture, not the default."""
+    p = scenario(data).pathway.set_index("year")["market_saf_premium"]
+    assert p.loc[2025] == pytest.approx(1.0)
+    assert p.loc[2040] == pytest.approx(0.98 ** 15, rel=1e-12)
+    flat = scenario(data, saf_premium_decline=0.0).pathway["market_saf_premium"]
+    assert (flat == 1.0).all()
+
+
 def test_carbon_price_escalates_from_its_default(data):
     """The planning price now grows by default; 0% is the workbook fixture, not the default."""
     rising = scenario(data).pathway.set_index("year")["carbon_price"]
@@ -301,32 +310,38 @@ def test_carbon_price_escalates_from_its_default(data):
     assert flat.nunique() == 1 and flat.iloc[0] == 200
 
 
-def test_offsets_stay_the_cheaper_tonne_once_the_buy_down_is_honest(data):
-    """With Wright's law and capture scaling, SAF no longer crosses below the carbon price."""
-    r = scenario(data, catalytic_pct=0.02).pathway.set_index("year")
+def test_at_a_flat_premium_offsets_stay_the_cheaper_tonne(data):
+    """Without market learning, the offtake discount alone never gets SAF under the carbon price."""
+    r = scenario(data, catalytic_pct=0.02, saf_premium_decline=0.0).pathway.set_index("year")
     assert r.loc[2040, "saf_cost_per_tonne"] > r.loc[2040, "carbon_price"]
 
 
 def test_saf_cost_per_tonne_tracks_the_jet_fuel_price(data):
-    """The only reason the line moves across years is the EIA fuel price index."""
+    """Across years the line moves only with the EIA fuel price and the premium decline."""
     pathway = scenario(data).pathway
-    ratio = pathway["saf_cost_per_tonne"] / pathway["jet_price"]
+    ratio = pathway["saf_cost_per_tonne"] / (pathway["jet_price"] * pathway["market_saf_premium"])
     assert ratio.nunique() == 1 or ratio.std() < 1e-9
 
 
 def test_breakeven_premium_actually_breaks_even(data):
     """Setting the premium to the reported breakeven equalizes the two prices."""
-    breakeven = scenario(data).pathway.set_index("year").loc[2040, "breakeven_premium"]
-    row = scenario(data, saf_premium=breakeven).pathway.set_index("year").loc[2040]
+    flat = dict(saf_premium_decline=0.0)   # breakeven is the 2040 premium, not the 2025 one
+    breakeven = scenario(data, **flat).pathway.set_index("year").loc[2040, "breakeven_premium"]
+    row = scenario(data, saf_premium=breakeven, **flat).pathway.set_index("year").loc[2040]
     assert row["saf_cost_per_tonne"] == pytest.approx(row["carbon_price"], rel=1e-9)
     assert row["abatement_spread"] == pytest.approx(0.0, abs=1e-9)
 
 
-def test_default_scenario_makes_offsets_the_cheaper_tonne(data):
-    """Documents the finding: at a 100% premium, carbon credits undercut SAF every year."""
-    r = scenario(data)
-    assert r.diagnostics["cheaper_tonne_2040"] == "offsets"
-    assert (r.pathway["abatement_spread"] > 0).all()
+def test_saf_becomes_the_cheaper_tonne_late_in_the_decade(data):
+    """Documents the finding: a 2%/yr premium decline gets SAF under offsets from 2038.
+
+    At a flat 100% premium, carbon credits undercut SAF every year.
+    """
+    p = scenario(data).pathway.set_index("year")
+    assert scenario(data).diagnostics["cheaper_tonne_2040"] == "SAF"
+    assert (p.loc[:2037, "abatement_spread"] > 0).all()
+    assert (p.loc[2038:, "abatement_spread"] < 0).all()
+    assert (scenario(data, saf_premium_decline=0.0).pathway["abatement_spread"] > 0).all()
 
 
 def test_a_high_enough_carbon_price_flips_the_spread(data):
@@ -429,16 +444,17 @@ def test_conservative_is_cheaper_to_reach_2030(data):
            _annual(data, "all_in").loc[:2030].sum()
 
 
-def test_conservative_is_also_cheaper_by_2040(data):
-    """Second half FAILS. Even with the offtake discount, the early spend never repays.
+def test_all_in_is_cheaper_by_2040(data):
+    """Second half HOLDS, but only because the market premium declines.
 
-    It repaid only while catalytic capital was modeled as moving the whole national SAF
-    price and Alaska kept all of the benefit. Priced as what it really is - a contractual
-    discount on the volume Alaska funded - it returns about a quarter of its outlay in
-    premium savings, which narrows the gap without closing it.
+    With SAF 2%/yr cheaper, All-In's extra SAF replaces offsets that keep getting dearer.
+    The catalytic spend itself still does not repay (next test); at a flat premium
+    Conservative stays cheaper at both dates.
     """
     cons, allin = _annual(data, "conservative").sum(), _annual(data, "all_in").sum()
-    assert allin > cons
+    assert allin < cons
+    flat = dict(saf_premium_decline=0.0)
+    assert _annual(data, "all_in", **flat).sum() > _annual(data, "conservative", **flat).sum()
 
 
 def test_the_offtake_saves_real_money_and_still_does_not_pay_for_itself(data):

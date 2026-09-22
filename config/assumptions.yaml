@@ -9,7 +9,8 @@ meta:
 inputs:
   saf_share_2030:   {default: 0.10, min: 0.0,  max: 0.50, step: 0.01, label: "SAF share 2030",  help: "Share of liquid jet fuel from SAF in 2030.", fmt: "pct", group: "SAF"}
   saf_share_2040:   {default: 0.60, min: 0.0,  max: 1.00, step: 0.05, label: "SAF share 2040",  help: "Share of liquid jet fuel from SAF in 2040.", fmt: "pct", group: "SAF"}
-  saf_premium:      {default: 1.00, min: 0.0,  max: 3.00, step: 0.05, label: "SAF price premium", help: "Market SAF price premium over conventional jet fuel. No transparent SAF spot price exists.", fmt: "pct", group: "SAF"}
+  saf_premium:      {default: 1.00, min: 0.0,  max: 3.00, step: 0.05, label: "SAF price premium (2025)", help: "Market SAF price premium over conventional jet fuel in 2025. It then falls by the premium decline below. No transparent SAF spot price exists.", fmt: "pct", group: "SAF"}
+  saf_premium_decline: {default: 0.02, min: 0.0, max: 0.10, step: 0.005, label: "SAF premium decline (%/yr)", help: "Market-wide learning: the premium shrinks this much each year regardless of Alaska's own capital. 2% is a modest assumption for a feedstock-dominated fuel. 0% reproduces the workbook's flat premium and is a parity fixture, not a forecast.", fmt: "pct", group: "SAF"}
   partner_share:    {default: 0.00, min: 0.0,  max: 0.50, step: 0.05, label: "Partner-funded share of premium", help: "Scope 3 / book-and-claim support. Shifts cost, not physical SAF use. 0% asserts Alaska's existing corporate SAF program (Microsoft, Boeing, WSU) never scales - a cost-conservative floor, not a neutral reading. Capped at 50%: at 100% the SAF is free to Alaska and it still books all the abatement.", fmt: "pct", group: "SAF"}
   fleet_renewal:    {default: 0.00, min: 0.0,  max: 1.00, step: 0.05, label: "Fleet renewal by 2040", help: "Incremental beyond the EIA efficiency baseline. 0% avoids double counting.", fmt: "pct", group: "Operations"}
   ground_elec:      {default: 0.00, min: 0.0,  max: 1.00, step: 0.05, label: "Ground electrification by 2040", help: "Share of Scope 1 vehicle emissions removed. Ceiling is small by construction: ground vehicles are 0.28% of the 2040 operational residual, so even 100% electrification removes ~20k t (~$4M at $200/t). Included for completeness, not leverage.", fmt: "pct", group: "Operations"}
@@ -49,7 +50,7 @@ references:
     note: >-
       Just enough SAF to reach the 2030 intensity floor, then the same ramp rate held out
       to 2040. No catalytic capital at all: nothing is spent ahead of the curve, so the
-      SAF premium never comes down and the 2040 residual stays large.
+      SAF premium falls only with the market and the 2040 residual stays large.
     overrides:
       carbon_escalation: 0.033
   all_in:

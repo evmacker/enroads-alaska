@@ -18,6 +18,7 @@ class ScenarioInputs:
     saf_share_2030: float
     saf_share_2040: float
     saf_premium: float
+    saf_premium_decline: float
     partner_share: float
     fleet_renewal: float
     ground_elec: float
@@ -136,16 +137,18 @@ def run_scenario(inputs: ScenarioInputs, data: dict) -> ScenarioResult:
 
         r.update(emissions.intensity_and_emissions(r, r["effective_saf_share"], a, data))
 
-        # Two prices moving apart: catalytic capital walks the SAF premium down, while the
-        # carbon price escalates as cheap credits are exhausted. Both are inert at their
-        # defaults (no investment, no escalation), so the workbook path is unchanged.
+        # Two prices moving apart: the SAF premium falls with market-wide learning (and,
+        # on funded volume, with catalytic capital), while the carbon price escalates as
+        # cheap credits are exhausted. All are inert at the workbook's inputs.
         r["cumulative_catalytic"] = cumulative_invest[y]
         # Capital buys a contractual price on the volume it funded, not a market-wide one.
         r["funded_capacity_gal"] = extra_capacity[y]
         r["offtake_share"] = saf.offtake_share(extra_capacity[y], r["effective_saf_gal"])
         r["offtake_gal"] = r["effective_saf_gal"] * r["offtake_share"]
         r["learning_factor"] = (1 - r["offtake_share"] * (1 - a["offtake_premium_ratio"]))
-        premium = saf.contracted_premium(inputs.saf_premium, r["offtake_share"], a)
+        r["market_saf_premium"] = finance.saf_premium_path(y, inputs.saf_premium,
+                                                           inputs.saf_premium_decline, BASE_YEAR)
+        premium = saf.contracted_premium(r["market_saf_premium"], r["offtake_share"], a)
         carbon_price = finance.carbon_price_path(y, inputs.carbon_price,
                                                  inputs.carbon_escalation, BASE_YEAR)
         r["effective_saf_premium"] = premium

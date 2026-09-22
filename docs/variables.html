@@ -116,7 +116,8 @@ cost-per-tonne figure in the app divides by this number.</pre>
 <tr><th>Input</th><th>Group</th><th>Default</th><th>Range</th><th>Drives</th></tr>
 <tr><td><code>saf_share_2030</code></td><td>SAF</td><td>10%</td><td>0&ndash;50%</td><td>SAF ramp to 2030</td></tr>
 <tr><td><code>saf_share_2040</code></td><td>SAF</td><td>60%</td><td>0&ndash;100%</td><td>SAF ramp 2030&rarr;2040</td></tr>
-<tr><td><code>saf_premium</code></td><td>SAF</td><td>1.00</td><td>0&ndash;3.00</td><td>SAF price over jet fuel</td></tr>
+<tr><td><code>saf_premium</code></td><td>SAF</td><td>1.00</td><td>0&ndash;3.00</td><td>SAF price over jet fuel, in 2025</td></tr>
+<tr><td><code>saf_premium_decline</code> <span class="pill new">new</span></td><td>SAF</td><td>2%/yr</td><td>0&ndash;10%</td><td>Market-wide learning: the premium shrinks this much each year. 0% is the workbook's flat premium</td></tr>
 <tr><td><code>partner_share</code></td><td>SAF</td><td>0%</td><td>0&ndash;50%</td><td>Premium shifted to third parties. Capped: at 100% SAF is free and Alaska still books the abatement</td></tr>
 <tr><td><code>fleet_renewal</code></td><td>Operations</td><td>0%</td><td>0&ndash;100%</td><td>Fuel burn per ASM</td></tr>
 <tr><td><code>ground_elec</code></td><td>Operations</td><td>0%</td><td>0&ndash;100%</td><td>Vehicle Scope 1 only</td></tr>
@@ -179,7 +180,8 @@ place a constraint binds anywhere in the model.</p></div>
 <br><b>&rarr; reduction_vs_2019, residual_emis</b> (aircraft + vehicle + facility + Scope 2)</p></div>
 
 <div class="step gate"><b>6 &nbsp;the two prices</b> <span class="pill new">new</span>
-<p>SAF premium = market &times; (1 &minus; offtake share &times; (1 &minus; offtake ratio))
+<p>market = saf_premium &times; (1 &minus; decline)<sup>year&minus;2025</sup>
+<br>SAF premium = market &times; (1 &minus; offtake share &times; (1 &minus; offtake ratio))
 &mdash; volume Alaska&rsquo;s capital funded prices cost-plus, the rest pays spot. The
 discount is bounded by how much of its own fuel it funded and never reaches fuel it did not.
 <br>carbon price = base &times; (1 + escalation)<sup>t&minus;2025</sup> &mdash; rises with time.

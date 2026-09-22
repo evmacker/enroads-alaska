@@ -100,8 +100,10 @@ move it — jet fuel price, SAF premium, partner share — and `test_model.py` p
 invariance against eight levers, because it is the property that makes the spread
 chart readable.
 
-At the workbook defaults SAF costs **$347/t in 2030 rising to $406/t in 2040** against a
-$200/t carbon price, so **offsets are the cheaper tonne in every modeled year**. The
+At the workbook inputs (flat premium) SAF costs **$347/t in 2030 rising to $406/t in 2040**
+against a $200/t carbon price, so **offsets are the cheaper tonne in every modeled year**.
+At the app defaults — premium falling 2%/yr, carbon price escalating 3.3%/yr — SAF falls to
+$299/t in 2040 against $325/t, and **SAF becomes the cheaper tonne from 2038**. The
 spread closes only below a ~49-58% SAF premium, above a ~$347-406/t carbon price, or with
 partners funding ~50%+ of the premium. The CORSIA midpoint of $59/t widens the gap rather
 than closing it.
@@ -160,7 +162,7 @@ How much of each line is derived from the model versus asserted here:
 "The most cost-effective route to net zero" is not computable here, and a naive optimizer
 would draw an actively misleading line, for two reasons:
 
-1. **Offsets are cheaper than SAF at default assumptions** — $200/t against $406/t. Cost
+1. **Offsets are cheaper than SAF at the workbook inputs** — $200/t against $406/t. Cost
    minimization therefore drives SAF to zero and buys the entire residual: $3.23B total
    against $17.13B for the default scenario, at a 2040 intensity reduction of 15.2% —
    identical to business as usual. The cheapest route to "net zero" is to decarbonize
@@ -251,29 +253,33 @@ volume-bound, never reaches fuel Alaska did not fund, and is structurally floore
 cost-plus still covers cost.
 
 That mechanism is worth real money — All-In contracts 24% of its 2040 SAF and saves
-**$1.30B**, about a quarter of its $5.52B outlay — and it still does not make All-In
-cheaper overall.
+about a quarter of its $5.52B outlay — but on its own it never repays the spend.
+
+**What does flip the total is the market premium decline** (`saf_premium_decline`, 2%/yr
+by default, new, not from the workbook). SAF gets cheaper every year while offsets get
+dearer, so All-In's extra SAF replaces tonnes that would otherwise be bought at a rising
+carbon price. The table uses the app defaults.
 
 | | Conservative | All-In |
 |---|---|---|
 | 2030 intensity reduction | 10.0% | 20.8% |
 | 2040 intensity reduction | 20.8% | 78.2% |
 | 2040 residual | 12.65 Mt | 3.52 Mt |
-| 2040 SAF price | $406/t | $324/t |
-| **Cumulative to 2030** | **$14.44B** | $16.00B |
-| **Cumulative to 2040** | **$50.86B** | $52.66B |
+| 2040 SAF price | $299/t | $222/t |
+| **Cumulative to 2030** | **$14.41B** | $15.93B |
+| **Cumulative to 2040** | $50.30B | **$49.38B** |
 | Cumulative abatement vs BAU | 6.58 Mt | **65.35 Mt** |
-| **Cost per tonne actually abated** | $456/t | **$333/t** |
+| **Cost per tonne actually abated** | $371/t | **$283/t** |
 
-Conservative is cheaper at both dates — $1.56B ahead in 2030 and still $1.80B ahead in
-2040. Delay is simply cheaper in this model, and the offtake narrows that gap without
-closing it.
+**The hypothesis now holds at both dates.** Conservative is $1.52B cheaper to 2030; All-In
+is $0.92B cheaper to 2040. The margin is thin and rests on the decline assumption: at a flat
+premium (0%) Conservative wins both dates, $50.86B against $52.66B.
 
 **One caveat that cuts the other way, and the model cannot express it.** There is no
 balance sheet here: the full $5.52B of catalytic capital is expensed, and no asset is
 booked against the capacity it bought. In reality that spend buys equity in operating
 plants with residual value and an ongoing claim on output. So the CVC leg is charged at
-full cost and credited only with the fuel discount it produces. Read $52.66B as an upper
+full cost and credited only with the fuel discount it produces. Read $49.38B as an upper
 bound on All-In's cost, not a settled figure.
 
 ### What survives, and what the tool should lead with
@@ -281,21 +287,21 @@ bound on All-In's cost, not a settled figure.
 The cost comparison was never the strongest argument for acting early, and it is not the
 one to make. This is:
 
-> All-In keeps **65.35 Mt** out of the air for **$21.77B** of abatement spend — **$333 per
-> tonne**. Conservative keeps **6.58 Mt** for **$3.00B** — **$456 per tonne**. Ten times
-> the abatement, at 27% less per tonne.
+> All-In keeps **65.35 Mt** out of the air for **$18.49B** of abatement spend — **$283 per
+> tonne**. Conservative keeps **6.58 Mt** for **$2.44B** — **$371 per tonne**. Ten times
+> the abatement, at 24% less per tonne.
 
 That statement needs no carbon price, no escalation rate and no discounting, so no framing
 choice can manufacture or destroy it. The app now leads with it. The honest summary of
-this model is **"decarbonizing costs more in total and less per tonne"**, not "decarbonizing
-is cheaper".
+this model is **"decarbonizing costs less per tonne, and less in total only if SAF keeps
+getting cheaper"**.
 
 ### Two cautions that remain
 
 1. **Framing still decides the total-cost winner.** The table above neutralises every
    year's residual. The model's own `closure_cost` column charges carbon only in 2040 — a
    workbook convention parity depends on — which compares sixteen years of SAF premium
-   against one year of offsets and gives Conservative $7.11B against All-In's $14.64B. It
+   against one year of offsets and gives Conservative $6.56B against All-In's $14.12B. It
    is kept for parity, not because it is the right lens.
 2. **Neither pathway can actually buy its residual.** See `docs/weaknesses.html` item 1.
    "Net zero 2040" in this tool means the residual was priced, not that it was procurable.

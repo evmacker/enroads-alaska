@@ -34,14 +34,15 @@ workbook**, not workbook data. They live in the `references` block of
 what it asserts, and why All-In is a stated assumption set rather than a least-cost
 solution.
 
-Two price mechanisms exist so that "invest early, save later" is expressible at all:
-catalytic capital walks the SAF premium down after its maturation lag, and the carbon
-planning price can escalate in real terms. Both are inert at their defaults, so workbook
-parity is untouched. `docs/model_decisions.md` uses them to review the hypothesis that
-**delaying is cheaper to 2030 but dearer to reach net zero by 2040** — of which only the
-first half holds. Conservative is cheaper at both dates ($50.86B vs $52.66B to 2040). What
-survives is the abatement comparison: All-In keeps 65.4 Mt out of the air at $333/t against
-Conservative's 6.6 Mt at $456/t — ten times the abatement, 27% less per tonne.
+Three price mechanisms make "invest early, save later" expressible: the market SAF premium
+falls 2%/yr with industry learning, catalytic capital discounts the premium on the volume it
+funds, and the carbon planning price escalates in real terms. All are inert at the workbook's
+inputs, so parity is untouched. `docs/model_decisions.md` uses them to review the hypothesis
+that **delaying is cheaper to 2030 but dearer to reach net zero by 2040**. At the defaults it
+holds, narrowly: Conservative is $1.52B cheaper to 2030, All-In $0.92B cheaper to 2040
+($49.38B vs $50.30B). At a flat premium Conservative wins both dates. The sturdier result is
+the abatement comparison: All-In keeps 65.4 Mt out of the air at $283/t against
+Conservative's 6.6 Mt at $371/t — ten times the abatement, 24% less per tonne.
 
 The investable-cash headroom KPI and its budget-bar chart are still in the engine
 (`financial_2040`) and in `src/viz.py::budget_bar`, but are not currently on the page.
@@ -82,7 +83,7 @@ The two HTML documents are standalone — open them in a browser, they are not p
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest tests -q      # 120 tests
+python -m pytest tests -q      # 121 tests
 ```
 
 `tests/test_parity.py` reproduces every column of the workbook's `Model` sheet for every

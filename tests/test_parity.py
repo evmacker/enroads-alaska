@@ -74,7 +74,7 @@ def workbook_grid():
 # Pinning the workbook's set here keeps the port verifiable while the app is free to open
 # on defensible assumptions. Every value below is the workbook's, and none may change.
 WORKBOOK_INPUTS = dict(
-    saf_share_2030=0.10, saf_share_2040=0.60, saf_premium=1.00, partner_share=0.0,
+    saf_share_2030=0.10, saf_share_2040=0.60, saf_premium=1.00, saf_premium_decline=0.0, partner_share=0.0,
     fleet_renewal=0.0, ground_elec=0.0, novel_propulsion=0.0,
     carbon_price=200, carbon_escalation=0.0, catalytic_pct=0.0,
     activity_adj=0.0, efficiency_adj=0.0, saf_supply_case="Base", post_2035_growth=0.10,
